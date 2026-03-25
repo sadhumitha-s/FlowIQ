@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from app.models.domain import FinancialItem, ItemType, CategoryType
 from app.services.tax_engine import calculate_tax_envelope, get_available_cash
 from app.services.runway import calculate_runway, generate_action_directives
+from app.services import runway
 from app.services import clustering
 from app.services.clustering import cluster_obligation
 
@@ -76,3 +77,27 @@ def test_generate_action_directives():
     assert actions[1].name == "AWS"
     assert actions[1].action == "Negotiate"
     assert actions[1].amount_to_pay == 100.0
+    assert "shadow price" in actions[1].justification.lower()
+
+
+def test_generate_action_directives_uses_llm_reasoning(monkeypatch):
+    payables = [
+        FinancialItem(id=1, name="Rent", amount=1500, due_date=date.today(), item_type=ItemType.payable, category=CategoryType.fixed, relationship_risk="high"),
+        FinancialItem(id=2, name="AWS", amount=200, due_date=date.today(), item_type=ItemType.payable, category=CategoryType.flexible, relationship_risk="low"),
+    ]
+
+    monkeypatch.setattr(
+        runway,
+        "generate_llm_rationales",
+        lambda **kwargs: {
+            1: "Rent was fully funded because its delay coefficient dominated the cash dual signal.",
+            2: "AWS is partially funded because the cash shadow price forced a boundary solution.",
+        },
+    )
+
+    actions = generate_action_directives(1600.0, payables)
+
+    assert actions[0].item_id == 1
+    assert "dominated the cash dual signal" in actions[0].justification
+    assert actions[1].item_id == 2
+    assert "cash shadow price" in actions[1].justification.lower()

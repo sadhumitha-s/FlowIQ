@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str | None = None
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
     GROQ_MODEL: str = "llama-3.2-11b-vision-preview"
+    GROQ_REASONING_MODEL: str = "llama-3.1-8b-instant"
+    REASONING_LLM_ENABLED: bool = True
+    REASONING_TIMEOUT_SECONDS: float = 20.0
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 

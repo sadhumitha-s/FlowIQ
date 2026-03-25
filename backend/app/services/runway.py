@@ -1,9 +1,10 @@
 import pandas as pd
 import pulp
-from typing import List, Tuple, Dict
+from typing import Any, List, Tuple, Dict
 from datetime import date
 from app.models.domain import FinancialItem, ItemType, CategoryType
 from app.schemas.schemas import ActionDirective
+from app.services.reasoning_engine import generate_llm_rationales
 
 
 def _penalty_rate_value(item: FinancialItem) -> float:
@@ -62,6 +63,51 @@ def get_risk_weight(risk: str) -> float:
     return 10.0
 
 
+def _delay_cost_per_dollar(item: FinancialItem, today: date) -> float:
+    return (
+        (_penalty_rate_value(item) * 500)
+        + get_category_weight(item.category)
+        + get_risk_weight(item.relationship_risk)
+        + (max(0, 30 - (item.due_date - today).days) * 2)
+    )
+
+
+def _extract_constraint_shadow_prices(prob: pulp.LpProblem) -> Dict[str, float]:
+    shadow_prices: Dict[str, float] = {}
+    for name, constraint in prob.constraints.items():
+        dual = getattr(constraint, "pi", None)
+        if dual is None:
+            continue
+        shadow_prices[name] = round(float(dual), 6)
+    return shadow_prices
+
+
+def _fallback_justification(
+    action: str,
+    paid_amount: float,
+    total_amount: float,
+    coeff: float,
+    cash_shadow_price: float,
+    reduced_cost: float,
+) -> str:
+    unpaid_amount = max(0.0, round(total_amount - paid_amount, 2))
+    if action == "Pay":
+        return (
+            f"Paid in full (${paid_amount:,.2f}) because the delay-cost coefficient ({coeff:.2f} per $1 unpaid) "
+            f"exceeded the cash shadow price ({cash_shadow_price:.2f}), so withholding this payment would raise the objective more than reallocating cash."
+        )
+    if action == "Negotiate":
+        return (
+            f"Partially funded at ${paid_amount:,.2f} with ${unpaid_amount:,.2f} deferred. "
+            f"The optimizer balanced this item's delay-cost coefficient ({coeff:.2f}) against the binding cash shadow price ({cash_shadow_price:.2f}), "
+            f"producing a marginal reduced-cost signal of {reduced_cost:.4f} near the allocation boundary."
+        )
+    return (
+        f"Deferred because paying from zero would consume constrained cash priced at {cash_shadow_price:.2f} per $1, "
+        f"while this item's reduced-cost signal ({reduced_cost:.4f}) indicates lower marginal objective benefit than funded alternatives."
+    )
+
+
 def generate_action_directives(available_cash: float, payables: List[FinancialItem]) -> List[ActionDirective]:
     """
     Replaces rule-based heuristics with deterministic MILP via PuLP.
@@ -75,29 +121,27 @@ def generate_action_directives(available_cash: float, payables: List[FinancialIt
     
     # Variables: y_i is the amount we DECIDE to pay for item i
     payment_vars = {}
+    delay_cost_coeffs: Dict[int, float] = {}
+    cap_constraints: Dict[int, str] = {}
     
     # Cost modeling factors
     today = date.today()
     
     for p in payables:
-        cat_weight = get_category_weight(p.category)
-        risk_weight = get_risk_weight(p.relationship_risk)
-        urgency_weight = max(0, 30 - (p.due_date - today).days) * 2  # Closer due dates hurt more to delay
-        
         # Total cost of delaying $1 for this payable
-        delay_cost_per_dollar = (_penalty_rate_value(p) * 500) + cat_weight + risk_weight + urgency_weight
-        
+        delay_cost_coeffs[p.id] = _delay_cost_per_dollar(p, today=today)
+
         # Variable: amount paid towards this payable
-        payment_vars[p.id] = pulp.LpVariable(f"pay_{p.id}", lowBound=0, upBound=p.amount, cat='Continuous')
+        payment_vars[p.id] = pulp.LpVariable(f"pay_{p.id}", lowBound=0, cat='Continuous')
+
+        # Explicit upper-bound constraints let us read shadow prices for each payable cap
+        constraint_name = f"Cap_{p.id}"
+        prob += payment_vars[p.id] <= p.amount, constraint_name
+        cap_constraints[p.id] = constraint_name
         
     # Objective function: Minimize sum of (Amount - Paid) * DelayCostPerDollar
     prob += pulp.lpSum([
-        (p.amount - payment_vars[p.id]) * (
-            (_penalty_rate_value(p) * 500) +
-            get_category_weight(p.category) +
-            get_risk_weight(p.relationship_risk) +
-            max(0, 30 - (p.due_date - today).days) * 2
-        ) for p in payables
+        (p.amount - payment_vars[p.id]) * delay_cost_coeffs[p.id] for p in payables
     ]), "TotalDelayCost"
     
     # Constraint 1: Total cash outgoing cannot exceed available cash
@@ -106,6 +150,18 @@ def generate_action_directives(available_cash: float, payables: List[FinancialIt
     # Solve the MILP
     prob.solve(pulp.PULP_CBC_CMD(msg=False))
     
+    shadow_prices = _extract_constraint_shadow_prices(prob)
+    cash_shadow_price = shadow_prices.get("CashConstraint", 0.0)
+
+    reasoning_context: Dict[str, Any] = {
+        "problem": "CashflowOptimization",
+        "objective": "Minimize sum((amount_i - pay_i) * delay_cost_i)",
+        "available_cash": round(float(available_cash), 2),
+        "cash_constraint_shadow_price": cash_shadow_price,
+        "constraint_shadow_prices": shadow_prices,
+        "items": [],
+    }
+
     # Extract results and generate directives
     directives = []
     
@@ -117,17 +173,42 @@ def generate_action_directives(available_cash: float, payables: List[FinancialIt
         target_amount = round(p.amount, 2)
         
         cat_str = p.category.value if hasattr(p.category, "value") else str(p.category)
+        coeff = delay_cost_coeffs[p.id]
+        reduced_cost = round(float(getattr(payment_vars[p.id], "dj", 0.0) or 0.0), 6)
+        cap_shadow_price = shadow_prices.get(cap_constraints[p.id], 0.0)
         
         if paid_amount >= target_amount - 0.01:
             action = "Pay"
-            justification = f"[MILP Optimized] Fully funded. High priority constraint satisfied (Category: {cat_str}, Risk: {p.relationship_risk})."
         elif paid_amount > 0.01:
             action = "Negotiate"
-            justification = f"[MILP Optimized] Partial allocation constraint. Mathematical optimization allocated ${paid_amount:,.2f} to minimize overall relationship/penalty degradation."
         else:
             action = "Delay"
-            justification = f"[MILP Optimized] Delayed. Model calculated that routing cash here breached the objective function's optimal penalty threshold."
-            
+
+        justification = _fallback_justification(
+            action=action,
+            paid_amount=paid_amount,
+            total_amount=target_amount,
+            coeff=coeff,
+            cash_shadow_price=cash_shadow_price,
+            reduced_cost=reduced_cost,
+        )
+
+        reasoning_context["items"].append(
+            {
+                "item_id": p.id,
+                "name": p.name,
+                "category": cat_str,
+                "relationship_risk": p.relationship_risk,
+                "amount": target_amount,
+                "amount_paid": paid_amount,
+                "amount_unpaid": round(target_amount - paid_amount, 2),
+                "action": action,
+                "delay_cost_per_dollar": round(coeff, 4),
+                "reduced_cost": reduced_cost,
+                "cap_constraint_shadow_price": cap_shadow_price,
+            }
+        )
+
         directives.append(ActionDirective(
             item_id=p.id,
             name=p.name,
@@ -139,5 +220,15 @@ def generate_action_directives(available_cash: float, payables: List[FinancialIt
     # Sort action directives: Pay -> Negotiate -> Delay
     sort_order = {"Pay": 1, "Negotiate": 2, "Delay": 3}
     directives.sort(key=lambda x: (sort_order.get(x.action, 4), -x.amount_to_pay))
+
+    llm_rationales = generate_llm_rationales(
+        context=reasoning_context,
+        expected_item_ids={p.id for p in payables},
+    )
+    if llm_rationales:
+        for directive in directives:
+            llm_text = llm_rationales.get(directive.item_id)
+            if llm_text:
+                directive.justification = llm_text
     
     return directives
