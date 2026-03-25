@@ -2,7 +2,7 @@ import pytest
 from datetime import date, timedelta
 from app.models.domain import FinancialItem, ItemType, CategoryType
 from app.services.tax_engine import calculate_tax_envelope, get_available_cash
-from app.services.runway import calculate_runway, generate_action_directives
+from app.services.runway import calculate_runway, generate_action_directives, project_survival_curve
 from app.services import runway
 from app.services import clustering
 from app.services.clustering import cluster_obligation
@@ -106,6 +106,46 @@ def test_generate_action_directives_uses_llm_reasoning(monkeypatch):
     assert "dominated the cash dual signal" in actions[0].justification
     assert actions[1].item_id == 2
     assert "cash shadow price" in actions[1].justification.lower()
+
+def test_project_survival_curve_uses_payment_plan():
+    today = date.today()
+    payables = [
+        FinancialItem(
+            id=1,
+            name="Critical Rent",
+            amount=1500,
+            due_date=today + timedelta(days=3),
+            item_type=ItemType.payable,
+        ),
+        FinancialItem(
+            id=2,
+            name="Optional SaaS",
+            amount=300,
+            due_date=today + timedelta(days=6),
+            item_type=ItemType.payable,
+        ),
+    ]
+    receivables = [
+        FinancialItem(
+            id=3,
+            name="Customer A",
+            amount=250,
+            due_date=today + timedelta(days=4),
+            item_type=ItemType.receivable,
+        )
+    ]
+
+    days, failures, points = project_survival_curve(
+        available_cash=1200.0,
+        payables=payables,
+        receivables=receivables,
+        payment_plan={1: 900.0, 2: 0.0},
+    )
+
+    assert points[0].day_offset == 0
+    assert points[-1].cumulative_cash == 550.0
+    assert days == 999
+    assert failures == []
 
 
 def test_resolve_negotiation_tier():

@@ -42,9 +42,33 @@ export interface NegotiationEmailResponse {
   body: string;
 }
 
+export interface CashRunwayPoint {
+  date: string;
+  day_offset: number;
+  cumulative_cash: number;
+  survives: boolean;
+}
+
+export interface CashRunwayStressSimulationRequest {
+  item_id: number;
+  due_date: string;
+}
+
+export interface CashRunwayStressSimulationResponse {
+  item_id: number;
+  original_due_date: string;
+  simulated_due_date: string;
+  runway_days: number;
+  failure_modes: string[];
+  curve_points: CashRunwayPoint[];
+  actions: ActionDirective[];
+}
+
 export const FinanceAPI = {
   getInsights: () => api.get('/engine/insights'),
   getActions: () => api.get<ActionDirective[]>('/engine/actions'),
+  simulateCashRunwayStress: (payload: CashRunwayStressSimulationRequest) =>
+    api.post<CashRunwayStressSimulationResponse>('/engine/simulations/cash-runway-stress', payload),
   generateNegotiationEmail: (itemId: number) =>
     api.post<NegotiationEmailResponse>(`/engine/actions/${itemId}/negotiation-email`),
   getPayables: () => api.get('/payables/'),

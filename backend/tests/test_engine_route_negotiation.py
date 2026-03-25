@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from app.api.routes import engine as engine_route
 from app.models.domain import CategoryType, FinancialItem, ItemType
-from app.schemas.schemas import ActionDirective
+from app.schemas.schemas import ActionDirective, CashRunwayStressSimulationRequest, CashRunwayPoint
 from app.services.negotiation_engine import NegotiationServiceError
 
 
@@ -193,3 +193,59 @@ def test_generate_negotiation_email_for_action_handles_service_error(monkeypatch
 
     assert exc.value.status_code == 400
     assert "simulated failure" in exc.value.detail
+
+
+def test_simulate_cash_runway_stress_success(monkeypatch):
+    payable = _payable(item_id=11, amount=300.0)
+    db = FakeSession(balance_amount=1000.0, payables=[payable], receivables=[])
+
+    monkeypatch.setattr(engine_route, "calculate_tax_envelope", lambda _incoming: 0.0)
+    monkeypatch.setattr(engine_route, "get_available_cash", lambda cash, _tax: cash)
+    monkeypatch.setattr(
+        engine_route,
+        "generate_action_directives",
+        lambda *_args, **_kwargs: [
+            ActionDirective(
+                item_id=11,
+                name="Vendor Labs",
+                action="Negotiate",
+                amount_to_pay=120.0,
+                justification="Boundary payment",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        engine_route,
+        "project_survival_curve",
+        lambda **_kwargs: (
+            12,
+            [],
+            [
+                CashRunwayPoint(
+                    date=date.today(),
+                    day_offset=0,
+                    cumulative_cash=1000.0,
+                    survives=True,
+                )
+            ],
+        ),
+    )
+
+    payload = CashRunwayStressSimulationRequest(item_id=11, due_date=date.today())
+    response = engine_route.simulate_cash_runway_stress(payload=payload, db=db)
+
+    assert response.item_id == 11
+    assert response.simulated_due_date == date.today()
+    assert response.runway_days == 12
+    assert response.actions[0].amount_to_pay == 120.0
+
+
+def test_simulate_cash_runway_stress_missing_payable():
+    db = FakeSession(balance_amount=1000.0, payables=[], receivables=[])
+    payload = CashRunwayStressSimulationRequest(item_id=99, due_date=date.today())
+
+    with pytest.raises(HTTPException) as exc:
+        engine_route.simulate_cash_runway_stress(payload=payload, db=db)
+
+    assert exc.value.status_code == 404
+    assert "Payable item not found for simulation" in exc.value.detail

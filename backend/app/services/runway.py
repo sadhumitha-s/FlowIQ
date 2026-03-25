@@ -1,9 +1,9 @@
 import pandas as pd
 import pulp
-from typing import Any, List, Tuple, Dict
+from typing import Any, List, Tuple, Dict, Optional
 from datetime import date
 from app.models.domain import FinancialItem, ItemType, CategoryType
-from app.schemas.schemas import ActionDirective
+from app.schemas.schemas import ActionDirective, CashRunwayPoint
 from app.services.reasoning_engine import generate_llm_rationales
 
 
@@ -47,6 +47,100 @@ def calculate_runway(available_cash: float, payables: List[FinancialItem], recei
             failure_modes.append(f"Shortfall of ${shortfall:,.2f} expected on {row['date']} due to {row['name']}.")
             
     return days_to_zero, failure_modes
+
+
+def project_survival_curve(
+    available_cash: float,
+    payables: List[FinancialItem],
+    receivables: List[FinancialItem],
+    payment_plan: Optional[Dict[int, float]] = None,
+) -> Tuple[int, List[str], List[CashRunwayPoint]]:
+    """
+    Projects cumulative cash by due-date events.
+    Optional payment_plan allows non-persistent stress simulations that reuse optimized pay-now allocations.
+    """
+    today = date.today()
+    events: List[Dict[str, Any]] = []
+
+    for p in payables:
+        planned_payment = p.amount
+        if payment_plan is not None:
+            planned_payment = max(0.0, float(payment_plan.get(p.id, 0.0)))
+        if planned_payment <= 0:
+            continue
+        events.append(
+            {
+                "date": p.due_date,
+                "amount": -planned_payment,
+                "name": p.name,
+            }
+        )
+
+    for r in receivables:
+        if r.amount <= 0:
+            continue
+        events.append(
+            {
+                "date": r.due_date,
+                "amount": r.amount,
+                "name": r.name,
+            }
+        )
+
+    if not events:
+        return (
+            999,
+            [],
+            [
+                CashRunwayPoint(
+                    date=today,
+                    day_offset=0,
+                    cumulative_cash=round(float(available_cash), 2),
+                    survives=available_cash >= 0,
+                )
+            ],
+        )
+
+    df = pd.DataFrame(events)
+    df["date"] = pd.to_datetime(df["date"]).dt.date
+    df = df.sort_values(by="date")
+    daily = df.groupby("date", as_index=False)["amount"].sum().sort_values(by="date")
+
+    points: List[CashRunwayPoint] = [
+        CashRunwayPoint(
+            date=today,
+            day_offset=0,
+            cumulative_cash=round(float(available_cash), 2),
+            survives=available_cash >= 0,
+        )
+    ]
+
+    cumulative_cash = float(available_cash)
+    for _, row in daily.iterrows():
+        event_date = row["date"]
+        cumulative_cash += float(row["amount"])
+        day_offset = max(0, (event_date - today).days)
+        points.append(
+            CashRunwayPoint(
+                date=event_date,
+                day_offset=day_offset,
+                cumulative_cash=round(cumulative_cash, 2),
+                survives=cumulative_cash >= 0,
+            )
+        )
+
+    days_to_zero = 999
+    failure_modes: List[str] = []
+
+    for point in points[1:]:
+        if point.cumulative_cash < 0:
+            if days_to_zero == 999:
+                days_to_zero = point.day_offset
+            failure_modes.append(
+                f"Shortfall of ${abs(point.cumulative_cash):,.2f} expected on {point.date}."
+            )
+
+    return days_to_zero, failure_modes, points
 
 
 def get_category_weight(category: CategoryType) -> float:

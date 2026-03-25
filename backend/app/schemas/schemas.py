@@ -37,12 +37,33 @@ class DashboardInsight(BaseModel):
     runway_days: int
     failure_modes: List[str]
 
+class CashRunwayPoint(BaseModel):
+    date: date
+    day_offset: int
+    cumulative_cash: float
+    survives: bool
+
+
+class CashRunwayStressSimulationRequest(BaseModel):
+    item_id: int
+    due_date: date
+
 class ActionDirective(BaseModel):
     item_id: int
     name: str
     action: str # Pay, Delay, Negotiate
     amount_to_pay: float
     justification: str
+
+
+class CashRunwayStressSimulationResponse(BaseModel):
+    item_id: int
+    original_due_date: date
+    simulated_due_date: date
+    runway_days: int
+    failure_modes: List[str]
+    curve_points: List[CashRunwayPoint]
+    actions: List[ActionDirective]
 
 
 class NegotiationEmailResponse(BaseModel):
