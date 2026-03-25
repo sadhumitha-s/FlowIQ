@@ -148,11 +148,5 @@ pytest -q backend/tests
 - Tables are auto-created at startup (`Base.metadata.create_all`) and migrations are also available via Alembic.
 - OCR endpoint accepts only image MIME types.
 
-## Roadmap
-- Add CI for tests and lint checks.
-- Add role-based auth and tenant isolation.
-- Add scenario simulations and Monte Carlo stress testing.
-- Improve observability for solver/LLM decision paths.
-
 ## License
 This project is licensed under the Apache License 2.0. See [LICENSE](./LICENSE).
