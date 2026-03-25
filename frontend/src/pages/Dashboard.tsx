@@ -198,60 +198,60 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {error && (
-        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex items-center gap-2">
+        <div className="rounded-md border border-[#C4554D]/40 bg-[#C4554D]/10 px-4 py-3 text-sm text-[#8D3D37] flex items-center gap-2">
           <AlertCircle size={16} />
           {error}
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
-          <p className="text-slate-400 text-sm">Current Cash</p>
-          <p className="text-2xl font-bold text-white mt-2">{insight ? formatCurrency(insight.current_cash) : '--'}</p>
+        <div className="border-b border-[#DDE3E8] pb-3">
+          <p className="text-[#6B7280] text-sm">Current Cash</p>
+          <p className="text-2xl font-semibold mt-1">{insight ? formatCurrency(insight.current_cash) : '--'}</p>
         </div>
-        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
-          <p className="text-slate-400 text-sm">Tax Envelope</p>
-          <p className="text-2xl font-bold text-white mt-2">{insight ? formatCurrency(insight.tax_envelope) : '--'}</p>
+        <div className="border-b border-[#DDE3E8] pb-3">
+          <p className="text-[#6B7280] text-sm">Tax Envelope</p>
+          <p className="text-2xl font-semibold mt-1">{insight ? formatCurrency(insight.tax_envelope) : '--'}</p>
         </div>
-        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
-          <p className="text-slate-400 text-sm">Operational Cash</p>
-          <p className="text-2xl font-bold text-white mt-2">{insight ? formatCurrency(insight.available_operational_cash) : '--'}</p>
+        <div className="border-b border-[#DDE3E8] pb-3">
+          <p className="text-[#6B7280] text-sm">Operational Cash</p>
+          <p className="text-2xl font-semibold mt-1">{insight ? formatCurrency(insight.available_operational_cash) : '--'}</p>
         </div>
-        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
-          <p className="text-slate-400 text-sm">Runway</p>
-          <p className="text-2xl font-bold text-white mt-2">{insight ? `${insight.runway_days} days` : '--'}</p>
+        <div className="border-b border-[#DDE3E8] pb-3">
+          <p className="text-[#6B7280] text-sm">Runway</p>
+          <p className="text-2xl font-semibold mt-1">{insight ? `${insight.runway_days} days` : '--'}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
-          <p className="text-slate-400 text-sm">Pay</p>
-          <p className="text-3xl font-bold text-emerald-300 mt-2">{actionCounts.Pay}</p>
+        <div className="border-b border-[#DDE3E8] pb-3">
+          <p className="text-[#6B7280] text-sm">Pay</p>
+          <p className="text-3xl font-semibold text-[#3A9D5D] mt-1">{actionCounts.Pay}</p>
         </div>
-        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
-          <p className="text-slate-400 text-sm">Negotiate</p>
-          <p className="text-3xl font-bold text-yellow-300 mt-2">{actionCounts.Negotiate}</p>
+        <div className="border-b border-[#DDE3E8] pb-3">
+          <p className="text-[#6B7280] text-sm">Negotiate</p>
+          <p className="text-3xl font-semibold text-[#B7811E] mt-1">{actionCounts.Negotiate}</p>
         </div>
-        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
-          <p className="text-slate-400 text-sm">Delay</p>
-          <p className="text-3xl font-bold text-slate-200 mt-2">{actionCounts.Delay}</p>
+        <div className="border-b border-[#DDE3E8] pb-3">
+          <p className="text-[#6B7280] text-sm">Delay</p>
+          <p className="text-3xl font-semibold text-[#2B2F36] mt-1">{actionCounts.Delay}</p>
         </div>
       </div>
 
-      <div className="bg-figma-card rounded-3xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-white mb-4">Cash Runway Stress Simulation</h2>
+      <div className="border-b border-[#DDE3E8] pb-6">
+        <h2 className="text-lg font-semibold mb-4">Cash Runway Stress Simulation</h2>
 
         {payables.length === 0 ? (
-          <p className="text-slate-400">Add payable items to run due-date stress simulation.</p>
+          <p className="text-[#6B7280]">Add payable items to run due-date stress simulation.</p>
         ) : (
           <div className="space-y-5">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-2">Payable</label>
+                <label className="block text-xs text-[#6B7280] mb-2">Payable</label>
                 <select
                   value={selectedPayableId ?? ''}
                   onChange={(event) => setSelectedPayableId(Number(event.target.value))}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2 text-slate-100"
+                  className="w-full rounded-md border border-[#DDE3E8] bg-white px-3 py-2 text-[#2B2F36]"
                 >
                   {payables
                     .filter((item): item is FinancialItem & { id: number } => typeof item.id === 'number')
@@ -264,7 +264,7 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <label className="block text-xs text-slate-400 mb-2">Simulated Due Date</label>
+                <label className="block text-xs text-[#6B7280] mb-2">Simulated Due Date</label>
                 <input
                   type="date"
                   value={simulatedDueDate}
@@ -278,13 +278,13 @@ export default function Dashboard() {
                     const nextShift = dayDiffFromBase(selectedPayable.due_date, event.target.value);
                     setDateShiftDays(clamp(nextShift, MIN_SHIFT_DAYS, MAX_SHIFT_DAYS));
                   }}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2 text-slate-100"
+                  className="w-full rounded-md border border-[#DDE3E8] bg-white px-3 py-2 text-[#2B2F36]"
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between text-sm text-slate-300 mb-2">
+              <div className="flex items-center justify-between text-sm text-[#4B5563] mb-2">
                 <span>Move due date by: {dateShiftDays} day{Math.abs(dateShiftDays) === 1 ? '' : 's'}</span>
                 {selectedPayable && <span>Original: {selectedPayable.due_date}</span>}
               </div>
@@ -294,40 +294,40 @@ export default function Dashboard() {
                 max={MAX_SHIFT_DAYS}
                 value={dateShiftDays}
                 onChange={(event) => setDateShiftDays(clamp(Number(event.target.value), MIN_SHIFT_DAYS, MAX_SHIFT_DAYS))}
-                className="w-full accent-figma-yellow"
+                className="w-full accent-[#B7811E]"
               />
             </div>
 
             {simulationError && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              <div className="rounded-md border border-[#C4554D]/40 bg-[#C4554D]/10 px-3 py-2 text-sm text-[#8D3D37]">
                 {simulationError}
               </div>
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-slate-700 bg-slate-900/30 p-4">
-                <p className="text-xs text-slate-400">Projected Runway</p>
-                <p className="text-lg font-semibold text-white mt-1">
+              <div className="border-b border-[#DDE3E8] pb-3">
+                <p className="text-xs text-[#6B7280]">Projected Runway</p>
+                <p className="text-lg font-semibold mt-1">
                   {simulation ? `${simulation.runway_days} days` : '--'}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-700 bg-slate-900/30 p-4">
-                <p className="text-xs text-slate-400">Action for Selected Payable</p>
-                <p className="text-lg font-semibold text-white mt-1">
+              <div className="border-b border-[#DDE3E8] pb-3">
+                <p className="text-xs text-[#6B7280]">Action for Selected Payable</p>
+                <p className="text-lg font-semibold mt-1">
                   {simulatedActionForSelected
                     ? `${simulatedActionForSelected.action} ${formatCurrency(simulatedActionForSelected.amount_to_pay)}`
                     : '--'}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-700 bg-slate-900/30 p-4">
-                <p className="text-xs text-slate-400">Simulation Status</p>
-                <p className="text-lg font-semibold text-white mt-1">
+              <div className="border-b border-[#DDE3E8] pb-3">
+                <p className="text-xs text-[#6B7280]">Simulation Status</p>
+                <p className="text-lg font-semibold mt-1">
                   {simulationLoading ? 'Recomputing…' : 'Live'}
                 </p>
               </div>
             </div>
 
-            <div className="h-72 rounded-2xl border border-slate-700 bg-slate-900/20 p-2">
+            <div className="h-72 rounded-md border border-[#DDE3E8] bg-white p-2">
               {simulation?.curve_points?.length ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
@@ -337,51 +337,51 @@ export default function Dashboard() {
                     }))}
                     margin={{ top: 12, right: 16, bottom: 8, left: 8 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#D1D5DB" />
+                    <XAxis dataKey="label" stroke="#6B7280" tick={{ fill: '#6B7280', fontSize: 11 }} />
                     <YAxis
-                      stroke="#94a3b8"
-                      tick={{ fill: '#94a3b8', fontSize: 11 }}
+                      stroke="#6B7280"
+                      tick={{ fill: '#6B7280', fontSize: 11 }}
                       tickFormatter={(value) => formatCurrency(Number(value ?? 0))}
                     />
                     <Tooltip
                       formatter={(value) => formatCurrency(Number(value ?? 0))}
-                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}
+                      contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #DDE3E8', borderRadius: '6px' }}
                     />
-                    <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="cash" stroke="#f5cf57" strokeWidth={2.5} dot={false} />
+                    <ReferenceLine y={0} stroke="#C4554D" strokeDasharray="4 4" />
+                    <Line type="monotone" dataKey="cash" stroke="#2F5BFF" strokeWidth={2.5} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-400 text-sm">
+                <div className="h-full flex items-center justify-center text-[#6B7280] text-sm">
                   Simulation curve will appear once a scenario is computed.
                 </div>
               )}
             </div>
 
             {simulation?.failure_modes?.length ? (
-              <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
-                <p className="text-sm font-semibold text-yellow-200 mb-2">Projected Failure Modes</p>
-                <ul className="space-y-1 text-sm text-yellow-100">
+              <div className="rounded-md border border-[#B7811E]/40 bg-[#B7811E]/10 p-4">
+                <p className="text-sm font-semibold text-[#8A6617] mb-2">Projected Failure Modes</p>
+                <ul className="space-y-1 text-sm text-[#8A6617]">
                   {simulation.failure_modes.map((mode) => (
                     <li key={mode}>{mode}</li>
                   ))}
                 </ul>
               </div>
             ) : (
-              <p className="text-sm text-emerald-300">No cash shortfall is projected in this simulation window.</p>
+              <p className="text-sm text-[#3A9D5D]">No cash shortfall is projected in this simulation window.</p>
             )}
           </div>
         )}
       </div>
 
-      <div className="bg-figma-card rounded-3xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-white mb-4">Action Plan</h2>
+      <div className="border-b border-[#DDE3E8] pb-6">
+        <h2 className="text-lg font-semibold mb-4">Action Plan</h2>
 
         {loading ? (
-          <div className="text-slate-300 flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Loading actions...</div>
+          <div className="text-[#6B7280] flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Loading actions...</div>
         ) : actions.length === 0 ? (
-          <p className="text-slate-400">No payable actions available.</p>
+          <p className="text-[#6B7280]">No payable actions available.</p>
         ) : (
           <div className="space-y-4">
             {actions.map((action) => {
@@ -389,58 +389,58 @@ export default function Dashboard() {
               const emailLoading = emailLoadingByItemId[action.item_id] ?? false;
 
               return (
-                <div key={action.item_id} className="rounded-2xl border border-slate-700 p-4 bg-slate-900/20">
+                <div key={action.item_id} className="border-b border-[#DDE3E8] pb-4">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        {action.action === 'Pay' && <CheckCircle2 size={16} className="text-emerald-400" />}
-                        {action.action === 'Negotiate' && <Mail size={16} className="text-yellow-300" />}
-                        {action.action === 'Delay' && <Clock3 size={16} className="text-slate-300" />}
-                        <span className="text-white font-semibold">{action.name}</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-200">{action.action}</span>
+                        {action.action === 'Pay' && <CheckCircle2 size={16} className="text-[#3A9D5D]" />}
+                        {action.action === 'Negotiate' && <Mail size={16} className="text-[#B7811E]" />}
+                        {action.action === 'Delay' && <Clock3 size={16} className="text-[#6B7280]" />}
+                        <span className="font-semibold">{action.name}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-md bg-[#F4F6F8] border border-[#DDE3E8] text-[#4B5563]">{action.action}</span>
                       </div>
-                      <p className="text-sm text-slate-300 mt-1">Pay now: <span className="font-medium text-white">{formatCurrency(action.amount_to_pay)}</span></p>
+                      <p className="text-sm text-[#6B7280] mt-1">Pay now: <span className="font-medium text-[#2B2F36]">{formatCurrency(action.amount_to_pay)}</span></p>
                     </div>
 
                     {action.action === 'Negotiate' && (
                       <button
                         onClick={() => void generateEmail(action.item_id)}
                         disabled={emailLoading}
-                        className="bg-figma-yellow hover:bg-yellow-300 disabled:opacity-60 text-figma-bg font-semibold px-4 py-2 rounded-xl transition-colors w-full md:w-auto"
+                        className="bg-[#2F5BFF] disabled:opacity-60 text-white font-medium px-4 py-2 rounded-md transition-colors w-full md:w-auto"
                       >
                         {emailLoading ? 'Generating...' : 'Generate Negotiation Email'}
                       </button>
                     )}
                   </div>
 
-                  <p className="text-sm text-slate-400 mt-3">{action.justification}</p>
+                  <p className="text-sm text-[#6B7280] mt-3">{action.justification}</p>
 
                   {email && (
-                    <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-800/40 p-4 space-y-3">
+                    <div className="mt-4 rounded-md border border-[#DDE3E8] p-4 space-y-3 bg-[#FAFBFC]">
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                        <div className="text-sm text-slate-300">
-                          Tier: <span className="font-semibold text-white">{email.relationship_tier}</span>
-                          <span className="mx-2 text-slate-500">|</span>
-                          Deferred: <span className="font-semibold text-white">{formatCurrency(email.amount_deferred)}</span>
+                        <div className="text-sm text-[#6B7280]">
+                          Tier: <span className="font-semibold text-[#2B2F36]">{email.relationship_tier}</span>
+                          <span className="mx-2 text-[#9CA3AF]">|</span>
+                          Deferred: <span className="font-semibold text-[#2B2F36]">{formatCurrency(email.amount_deferred)}</span>
                         </div>
                         <button
                           onClick={() => void copyEmail(email)}
-                          className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700/50"
+                          className="inline-flex items-center gap-2 rounded-md border border-[#DDE3E8] px-3 py-2 text-sm text-[#4B5563] bg-white"
                         >
                           <Copy size={14} />
                           {copiedItemId === email.item_id ? 'Copied' : 'Copy Email'}
                         </button>
                       </div>
 
-                      <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-3">
-                        <p className="text-sm text-slate-400">Subject</p>
-                        <p className="text-white font-medium mt-1">{email.subject}</p>
+                      <div className="rounded-md border border-[#DDE3E8] bg-white p-3">
+                        <p className="text-sm text-[#6B7280]">Subject</p>
+                        <p className="font-medium mt-1">{email.subject}</p>
                       </div>
 
                       <textarea
                         readOnly
                         value={email.body}
-                        className="w-full h-52 rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-sm text-slate-200 resize-y focus:outline-none"
+                        className="w-full h-52 rounded-md border border-[#DDE3E8] bg-white p-3 text-sm text-[#2B2F36] resize-y focus:outline-none"
                       />
                     </div>
                   )}

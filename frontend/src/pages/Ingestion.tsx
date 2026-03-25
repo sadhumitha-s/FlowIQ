@@ -1,157 +1,254 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { FinanceAPI, type FinancialItem } from '../services/api';
+
+type ItemType = 'payable' | 'receivable';
+
+function isItemType(value: string): value is ItemType {
+  return value === 'payable' || value === 'receivable';
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof (error as { response?: { data?: { detail?: unknown } } }).response?.data?.detail === 'string'
+  ) {
+    return (error as { response: { data: { detail: string } } }).response.data.detail;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
 
 export default function Ingestion() {
   const [balance, setBalance] = useState(0);
   const [payables, setPayables] = useState<FinancialItem[]>([]);
   const [receivables, setReceivables] = useState<FinancialItem[]>([]);
 
-  // Form states
   const [itemName, setItemName] = useState('');
   const [itemAmount, setItemAmount] = useState('');
   const [itemDate, setItemDate] = useState('');
-  const [itemType, setItemType] = useState<'payable'|'receivable'>('payable');
+  const [itemType, setItemType] = useState<ItemType>('payable');
+
   const [ocrFile, setOcrFile] = useState<File | null>(null);
-  const [ocrType, setOcrType] = useState<'payable'|'receivable'>('payable');
-  const [ocrStatus, setOcrStatus] = useState('');
+  const [ocrType, setOcrType] = useState<ItemType>('payable');
   const [isUploadingOCR, setIsUploadingOCR] = useState(false);
 
-  const fetchData = () => {
-    FinanceAPI.getBalance().then(res => setBalance(res.data.amount || 0));
-    FinanceAPI.getPayables().then(res => setPayables(res.data));
-    FinanceAPI.getReceivables().then(res => setReceivables(res.data));
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const [balanceRes, payablesRes, receivablesRes] = await Promise.all([
+        FinanceAPI.getBalance(),
+        FinanceAPI.getPayables(),
+        FinanceAPI.getReceivables(),
+      ]);
+
+      setBalance(balanceRes.data.amount || 0);
+      setPayables(payablesRes.data);
+      setReceivables(receivablesRes.data);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load financial records.'));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, []);
 
-  const handleUpdateBalance = async (e: any) => {
+  const handleUpdateBalance = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    await FinanceAPI.updateBalance(Number(balance));
-    fetchData();
-  };
+    setError('');
+    setStatus('');
 
-  const handleAddItem = async (e: any) => {
-    e.preventDefault();
-    const data: FinancialItem = {
-      name: itemName,
-      amount: Number(itemAmount),
-      due_date: itemDate
-    };
-    if (itemType === 'payable') {
-      await FinanceAPI.addPayable(data);
-    } else {
-      await FinanceAPI.addReceivable(data);
+    try {
+      await FinanceAPI.updateBalance(Number(balance));
+      await fetchData();
+      setStatus('Balance updated.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to update balance.'));
     }
-    
-    setItemName('');
-    setItemAmount('');
-    setItemDate('');
-    fetchData();
   };
 
-  const handleDelete = async (id: number, type: 'payable'|'receivable') => {
-    if (type === 'payable') await FinanceAPI.deletePayable(id);
-    else await FinanceAPI.deleteReceivable(id);
-    fetchData();
-  };
-
-  const handleOCRUpload = async (e: any) => {
+  const handleAddItem = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError('');
+    setStatus('');
+
+    const parsedAmount = Number(itemAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError('Amount must be greater than zero.');
+      return;
+    }
+
+    const data: FinancialItem = {
+      name: itemName.trim(),
+      amount: parsedAmount,
+      due_date: itemDate,
+    };
+
+    try {
+      if (itemType === 'payable') {
+        await FinanceAPI.addPayable(data);
+      } else {
+        await FinanceAPI.addReceivable(data);
+      }
+
+      setItemName('');
+      setItemAmount('');
+      setItemDate('');
+      await fetchData();
+      setStatus('Record added.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to add record.'));
+    }
+  };
+
+  const handleDelete = async (id: number, type: ItemType) => {
+    setError('');
+    setStatus('');
+
+    try {
+      if (type === 'payable') {
+        await FinanceAPI.deletePayable(id);
+      } else {
+        await FinanceAPI.deleteReceivable(id);
+      }
+      await fetchData();
+      setStatus('Record deleted.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to delete record.'));
+    }
+  };
+
+  const handleOCRUpload = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError('');
+    setStatus('');
+
     if (!ocrFile) {
-      setOcrStatus('Select an image before uploading.');
+      setError('Select an image before uploading.');
       return;
     }
 
     try {
       setIsUploadingOCR(true);
-      setOcrStatus('');
       const response = await FinanceAPI.uploadOCRDocument(ocrFile, ocrType);
-      setOcrStatus(`Imported ${response.data.created_count} item(s) from OCR.`);
+      setStatus(`Imported ${response.data.created_count} item(s) from OCR.`);
       setOcrFile(null);
-      fetchData();
-    } catch (err: any) {
-      const message = err?.response?.data?.detail || 'OCR upload failed.';
-      setOcrStatus(String(message));
+      await fetchData();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'OCR upload failed.'));
     } finally {
       setIsUploadingOCR(false);
     }
   };
 
+  const handleItemTypeChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    if (isItemType(event.target.value)) {
+      setItemType(event.target.value);
+    }
+  };
+
+  const handleOCRTypeChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    if (isItemType(event.target.value)) {
+      setOcrType(event.target.value);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in max-w-4xl mx-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm">
-        <h2 className="text-xl font-medium mb-4 text-slate-100">Core Cash Balance</h2>
+      {error && <p className="rounded-md border border-[#C4554D]/40 bg-[#C4554D]/10 px-4 py-2 text-sm text-[#8D3D37]">{error}</p>}
+      {status && <p className="rounded-md border border-[#3A9D5D]/40 bg-[#3A9D5D]/10 px-4 py-2 text-sm text-[#2F7D4A]">{status}</p>}
+
+      <div className="border-b border-[#DDE3E8] pb-5">
+        <h2 className="text-lg font-semibold mb-4">Core Cash Balance</h2>
         <form onSubmit={handleUpdateBalance} className="flex gap-4 items-end">
           <div className="flex-1">
-            <label className="block text-xs text-slate-400 mb-1">Current Bank Balance ($)</label>
-            <input 
-              type="number" 
+            <label className="block text-xs text-[#6B7280] mb-1">Current Bank Balance ($)</label>
+            <input
+              type="number"
               value={balance}
-              onChange={e => setBalance(Number(e.target.value))}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+              onChange={(event) => setBalance(Number(event.target.value || 0))}
+              className="w-full bg-white border border-[#DDE3E8] rounded-md px-3 py-2 text-[#2B2F36] focus:outline-none focus:border-[#2F5BFF]"
             />
           </div>
-          <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg transition-colors font-medium">
+          <button type="submit" className="bg-[#2F5BFF] text-white px-4 py-2 rounded-md font-medium">
             Update
           </button>
         </form>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm">
-        <h2 className="text-xl font-medium mb-6 text-slate-100">Add Obligation / Receivable</h2>
+      <div className="border-b border-[#DDE3E8] pb-5">
+        <h2 className="text-lg font-semibold mb-5">Add Obligation / Receivable</h2>
         <form onSubmit={handleAddItem} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Name / Vendor</label>
-              <input required type="text" value={itemName} onChange={e=>setItemName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white" />
+              <label className="block text-xs text-[#6B7280] mb-1">Name / Vendor</label>
+              <input required type="text" value={itemName} onChange={(event) => setItemName(event.target.value)} className="w-full bg-white border border-[#DDE3E8] rounded-md px-3 py-2 text-[#2B2F36]" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Amount ($)</label>
-              <input required type="number" value={itemAmount} onChange={e=>setItemAmount(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white" />
+              <label className="block text-xs text-[#6B7280] mb-1">Amount ($)</label>
+              <input required min="0.01" step="0.01" type="number" value={itemAmount} onChange={(event) => setItemAmount(event.target.value)} className="w-full bg-white border border-[#DDE3E8] rounded-md px-3 py-2 text-[#2B2F36]" />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Due Date</label>
-              <input required type="date" value={itemDate} onChange={e=>setItemDate(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white style-color-scheme-dark" />
+              <label className="block text-xs text-[#6B7280] mb-1">Due Date</label>
+              <input
+                required
+                type="date"
+                value={itemDate}
+                onChange={(event) => setItemDate(event.target.value)}
+                className="w-full bg-white border border-[#DDE3E8] rounded-md px-3 py-2 text-[#2B2F36]"
+              />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Type</label>
-              <select value={itemType} onChange={e=>setItemType(e.target.value as any)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white">
+              <label className="block text-xs text-[#6B7280] mb-1">Type</label>
+              <select value={itemType} onChange={handleItemTypeChange} className="w-full bg-white border border-[#DDE3E8] rounded-md px-3 py-2 text-[#2B2F36]">
                 <option value="payable">Payable (Bill)</option>
                 <option value="receivable">Receivable (Invoice)</option>
               </select>
             </div>
           </div>
           <div className="pt-2">
-            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg transition-colors font-medium">
+            <button type="submit" className="w-full bg-[#3A9D5D] text-white px-6 py-2 rounded-md font-medium">
               Add Record
             </button>
           </div>
         </form>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm">
-        <h2 className="text-xl font-medium mb-2 text-slate-100">OCR Document Ingestion</h2>
-        <p className="text-xs text-slate-400 mb-4">
+      <div className="border-b border-[#DDE3E8] pb-5">
+        <h2 className="text-lg font-semibold mb-2">OCR Document Ingestion</h2>
+        <p className="text-xs text-[#6B7280] mb-4">
           Upload an image of a financial document. OCR extracts line-items and maps them into the ingestion pipeline.
         </p>
         <form onSubmit={handleOCRUpload} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Document Image</label>
+              <label className="block text-xs text-[#6B7280] mb-1">Document Image</label>
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => setOcrFile(e.target.files?.[0] || null)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white"
+                onChange={(event) => setOcrFile(event.target.files?.[0] || null)}
+                className="w-full bg-white border border-[#DDE3E8] rounded-md px-3 py-2 text-[#2B2F36]"
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Default Type (when OCR text is ambiguous)</label>
-              <select value={ocrType} onChange={e => setOcrType(e.target.value as any)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white">
+              <label className="block text-xs text-[#6B7280] mb-1">Default Type (when OCR text is ambiguous)</label>
+              <select value={ocrType} onChange={handleOCRTypeChange} className="w-full bg-white border border-[#DDE3E8] rounded-md px-3 py-2 text-[#2B2F36]">
                 <option value="payable">Payable (Bill)</option>
                 <option value="receivable">Receivable (Invoice)</option>
               </select>
@@ -160,47 +257,70 @@ export default function Ingestion() {
           <button
             type="submit"
             disabled={isUploadingOCR}
-            className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg transition-colors font-medium"
+            className="w-full bg-[#2F5BFF] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white px-6 py-2 rounded-md font-medium"
           >
             {isUploadingOCR ? 'Processing OCR...' : 'Upload & Parse'}
           </button>
-          {ocrStatus && <p className="text-sm text-slate-300">{ocrStatus}</p>}
         </form>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <div className="border-b border-[#DDE3E8] pb-5">
           <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-emerald-500"></span> Receivables
+            <span className="w-2 h-2 rounded-full bg-[#3A9D5D]"></span> Receivables
           </h3>
-          <ul className="space-y-2">
-            {receivables.map(r => (
-              <li key={r.id} className="flex justify-between items-center text-sm p-3 bg-slate-950 rounded border border-slate-800">
-                <span>{r.name} <span className="text-slate-500 text-xs ml-2">{r.due_date}</span></span>
-                <div className="flex items-center gap-4">
-                  <span className="font-mono text-emerald-400">${r.amount}</span>
-                  <button onClick={() => handleDelete(r.id!, 'receivable')} className="text-rose-500 hover:text-rose-400">×</button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {isLoading && receivables.length === 0 ? (
+            <p className="text-sm text-[#6B7280]">Loading receivables...</p>
+          ) : (
+            <ul className="divide-y divide-[#DDE3E8]">
+              {receivables.map((r) => (
+                <li key={r.id} className="flex justify-between items-center text-sm py-3">
+                  <span>{r.name} <span className="text-[#6B7280] text-xs ml-2">{r.due_date}</span></span>
+                  <div className="flex items-center gap-4">
+                    <span className="font-mono text-[#3A9D5D]">${r.amount}</span>
+                    {(() => {
+                      const id = r.id;
+                      if (typeof id !== 'number') {
+                        return null;
+                      }
+                      return (
+                        <button type="button" onClick={() => void handleDelete(id, 'receivable')} className="text-[#C4554D]">×</button>
+                      );
+                    })()}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <div className="border-b border-[#DDE3E8] pb-5">
           <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-rose-500"></span> Payables
+            <span className="w-2 h-2 rounded-full bg-[#C4554D]"></span> Payables
           </h3>
-          <ul className="space-y-2">
-            {payables.map(p => (
-              <li key={p.id} className="flex justify-between items-center text-sm p-3 bg-slate-950 rounded border border-slate-800">
-                <span>{p.name} <span className="text-slate-500 text-xs ml-2">{p.due_date}</span></span>
-                <div className="flex items-center gap-4">
-                  <span className="font-mono text-rose-400">${p.amount}</span>
-                  <button onClick={() => handleDelete(p.id!, 'payable')} className="text-rose-500 hover:text-rose-400">×</button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {isLoading && payables.length === 0 ? (
+            <p className="text-sm text-[#6B7280]">Loading payables...</p>
+          ) : (
+            <ul className="divide-y divide-[#DDE3E8]">
+              {payables.map((p) => (
+                <li key={p.id} className="flex justify-between items-center text-sm py-3">
+                  <span>{p.name} <span className="text-[#6B7280] text-xs ml-2">{p.due_date}</span></span>
+                  <div className="flex items-center gap-4">
+                    <span className="font-mono text-[#C4554D]">${p.amount}</span>
+                    {(() => {
+                      const id = p.id;
+                      if (typeof id !== 'number') {
+                        return null;
+                      }
+                      return (
+                        <button type="button" onClick={() => void handleDelete(id, 'payable')} className="text-[#C4554D]">×</button>
+                      );
+                    })()}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

@@ -11,11 +11,11 @@ export default {
       },
       colors: {
         figma: {
-          bg: '#2E3137',
-          sidebar: '#26292E',
-          card: '#3B3E46',
-          yellow: '#FFF27A',
-          coral: '#FB5D5D'
+          bg: '#F4F6F8',
+          sidebar: '#2B2F36',
+          card: '#FFFFFF',
+          yellow: '#B7811E',
+          coral: '#C4554D'
         },
         slate: {
           850: '#151e2e',

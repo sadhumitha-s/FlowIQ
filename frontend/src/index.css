@@ -1,7 +1,26 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --bg: #f4f6f8;
+    --surface: #ffffff;
+    --text: #2b2f36;
+    --muted: #6b7280;
+    --line: #dde3e8;
+    --primary: #2f5bff;
+    --success: #3a9d5d;
+    --danger: #c4554d;
+    --warning: #b7811e;
+    --sidebar: #2b2f36;
+  }
+
   body {
-    @apply bg-slate-950 text-slate-50 antialiased min-h-screen selection:bg-indigo-500/30;
+    @apply antialiased min-h-screen;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  * {
+    border-color: var(--line);
   }
 }
