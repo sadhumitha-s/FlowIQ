@@ -78,6 +78,7 @@ FlowIQ/
 2. `python3 -m venv .venv`
 3. `source .venv/bin/activate`
 4. `pip install -r requirements.txt`
+   - OCR ingestion also requires the system binary `tesseract` to be installed and available on PATH.
 5. Configure your environment:
    ```bash
    cp .env.example .env
@@ -93,6 +94,15 @@ FlowIQ/
    ```
 
 The backend API and Swagger Docs will run on `http://localhost:8000`.
+
+### OCR Ingestion Endpoint
+- `POST /api/v1/ingestion/ocr`
+- Form fields:
+  - `file`: image file (`image/*`)
+  - `default_item_type`: `payable` or `receivable`
+- Behavior:
+  - Runs Tesseract OCR on uploaded financial documents.
+  - Extracts line-items (name, amount, due date, type), structures them with a pandas normalization step, and inserts them into `financial_items`.
 
 ### Frontend Setup
 1. `cd frontend`

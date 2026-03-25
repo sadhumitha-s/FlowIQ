@@ -43,3 +43,8 @@ class ActionDirective(BaseModel):
     action: str # Pay, Delay, Negotiate
     amount_to_pay: float
     justification: str
+
+
+class OCRIngestionResponse(BaseModel):
+    created_count: int
+    items: List[FinancialItemResponse]

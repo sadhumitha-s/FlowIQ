@@ -18,6 +18,11 @@ export interface FinancialItem {
   relationship_risk?: 'low' | 'medium' | 'high';
 }
 
+export interface OCRIngestionResponse {
+  created_count: number;
+  items: FinancialItem[];
+}
+
 export const FinanceAPI = {
   getInsights: () => api.get('/engine/insights'),
   getActions: () => api.get('/engine/actions'),
@@ -27,6 +32,16 @@ export const FinanceAPI = {
   addReceivable: (data: FinancialItem) => api.post('/receivables/', data),
   deletePayable: (id: number) => api.delete(`/payables/${id}`),
   deleteReceivable: (id: number) => api.delete(`/receivables/${id}`),
+  uploadOCRDocument: (file: File, defaultItemType: 'payable' | 'receivable' = 'payable') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('default_item_type', defaultItemType);
+    return api.post<OCRIngestionResponse>('/ingestion/ocr', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
   getBalance: () => api.get('/accounts/'),
   updateBalance: (amount: number) => api.post('/accounts/', { amount }),
 };

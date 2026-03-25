@@ -5,6 +5,10 @@ from datetime import date
 from app.models.domain import FinancialItem, ItemType, CategoryType
 from app.schemas.schemas import ActionDirective
 
+
+def _penalty_rate_value(item: FinancialItem) -> float:
+    return float(item.penalty_rate or 0.0)
+
 def calculate_runway(available_cash: float, payables: List[FinancialItem], receivables: List[FinancialItem]) -> Tuple[int, List[str]]:
     """
     Simulates the runway using pandas DataFrames for time-series calculation.
@@ -81,7 +85,7 @@ def generate_action_directives(available_cash: float, payables: List[FinancialIt
         urgency_weight = max(0, 30 - (p.due_date - today).days) * 2  # Closer due dates hurt more to delay
         
         # Total cost of delaying $1 for this payable
-        delay_cost_per_dollar = (p.penalty_rate * 500) + cat_weight + risk_weight + urgency_weight
+        delay_cost_per_dollar = (_penalty_rate_value(p) * 500) + cat_weight + risk_weight + urgency_weight
         
         # Variable: amount paid towards this payable
         payment_vars[p.id] = pulp.LpVariable(f"pay_{p.id}", lowBound=0, upBound=p.amount, cat='Continuous')
@@ -89,7 +93,7 @@ def generate_action_directives(available_cash: float, payables: List[FinancialIt
     # Objective function: Minimize sum of (Amount - Paid) * DelayCostPerDollar
     prob += pulp.lpSum([
         (p.amount - payment_vars[p.id]) * (
-            (p.penalty_rate * 500) +
+            (_penalty_rate_value(p) * 500) +
             get_category_weight(p.category) +
             get_risk_weight(p.relationship_risk) +
             max(0, 30 - (p.due_date - today).days) * 2

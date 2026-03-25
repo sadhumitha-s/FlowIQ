@@ -11,6 +11,10 @@ export default function Ingestion() {
   const [itemAmount, setItemAmount] = useState('');
   const [itemDate, setItemDate] = useState('');
   const [itemType, setItemType] = useState<'payable'|'receivable'>('payable');
+  const [ocrFile, setOcrFile] = useState<File | null>(null);
+  const [ocrType, setOcrType] = useState<'payable'|'receivable'>('payable');
+  const [ocrStatus, setOcrStatus] = useState('');
+  const [isUploadingOCR, setIsUploadingOCR] = useState(false);
 
   const fetchData = () => {
     FinanceAPI.getBalance().then(res => setBalance(res.data.amount || 0));
@@ -51,6 +55,28 @@ export default function Ingestion() {
     if (type === 'payable') await FinanceAPI.deletePayable(id);
     else await FinanceAPI.deleteReceivable(id);
     fetchData();
+  };
+
+  const handleOCRUpload = async (e: any) => {
+    e.preventDefault();
+    if (!ocrFile) {
+      setOcrStatus('Select an image before uploading.');
+      return;
+    }
+
+    try {
+      setIsUploadingOCR(true);
+      setOcrStatus('');
+      const response = await FinanceAPI.uploadOCRDocument(ocrFile, ocrType);
+      setOcrStatus(`Imported ${response.data.created_count} item(s) from OCR.`);
+      setOcrFile(null);
+      fetchData();
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || 'OCR upload failed.';
+      setOcrStatus(String(message));
+    } finally {
+      setIsUploadingOCR(false);
+    }
   };
 
   return (
@@ -104,6 +130,41 @@ export default function Ingestion() {
               Add Record
             </button>
           </div>
+        </form>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm">
+        <h2 className="text-xl font-medium mb-2 text-slate-100">OCR Document Ingestion</h2>
+        <p className="text-xs text-slate-400 mb-4">
+          Upload an image of a financial document. OCR extracts line-items and maps them into the ingestion pipeline.
+        </p>
+        <form onSubmit={handleOCRUpload} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Document Image</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setOcrFile(e.target.files?.[0] || null)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Default Type (when OCR text is ambiguous)</label>
+              <select value={ocrType} onChange={e => setOcrType(e.target.value as any)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white">
+                <option value="payable">Payable (Bill)</option>
+                <option value="receivable">Receivable (Invoice)</option>
+              </select>
+            </div>
+          </div>
+          <button
+            type="submit"
+            disabled={isUploadingOCR}
+            className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg transition-colors font-medium"
+          >
+            {isUploadingOCR ? 'Processing OCR...' : 'Upload & Parse'}
+          </button>
+          {ocrStatus && <p className="text-sm text-slate-300">{ocrStatus}</p>}
         </form>
       </div>
 
