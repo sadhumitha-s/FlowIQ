@@ -8,6 +8,69 @@ The project is broken into two main parts:
 - **Backend (Operations Research & AI Pipeline)**: Built on FastAPI (Python). It utilizes **Pandas** for high-speed time-series transformations and the **PuLP** constraint optimization engine (Mixed-Integer Linear Programming) to deterministically route payments. Data is persisted to an external **PostgreSQL (Supabase)** database via SQLAlchemy and Alembic.
 - **Frontend (Interactive Canvas)**: Vite + React (TypeScript) for the interactive User Interface and scenario stress-testing.
 
+## Project Structure
+
+```
+FlowIQ/
+├── .gitignore
+├── README.md
+├── backend/
+│   ├── .env.example
+│   ├── alembic.ini
+│   ├── cashflow.db
+│   ├── requirements.txt
+│   ├── alembic/
+│   │   ├── env.py
+│   │   ├── script.py.mako
+│   │   └── versions/
+│   │       └── 0edec47a55b2_initial_schema.py
+│   ├── app/
+│   │   ├── api/
+│   │   │   └── api.py
+│   │   ├── core/config.py
+│   │   ├── db/session.py
+│   │   ├── models/domain.py
+│   │   ├── schemas/schemas.py
+│   │   ├── services/
+│   │   │   ├── clustering.py
+│   │   │   ├── runway.py
+│   │   │   └── tax_engine.py
+│   │   └── main.py
+│   └── tests/
+│       └── test_services.py
+├── docs
+├── frontend/
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── postcss.config.js
+│   ├── tailwind.config.js
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   ├── vite.config.ts
+│   ├── eslint.config.js
+│   ├── dist/
+│   │   └── assets/
+│   │       ├── index-Belenkwd.css
+│   │       └── index-CJtDb8Td.js
+│   ├── public/
+│   └── src/
+│       ├── App.css
+│       ├── App.tsx
+│       ├── index.css
+│       ├── main.tsx
+│       ├── assets/
+│       │   ├── hero.png
+│       │   ├── react.svg
+│       │   └── vite.svg
+│       ├── pages/
+│       │   ├── Dashboard.tsx
+│       │   └── Ingestion.tsx
+│       └── services/
+│           └── api.ts
+```
+
 ## Getting Started
 
 ### Backend Setup
