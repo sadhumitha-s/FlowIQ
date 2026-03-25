@@ -1,107 +1,139 @@
-from typing import List, Tuple
+import pandas as pd
+import pulp
+from typing import List, Tuple, Dict
+from datetime import date
 from app.models.domain import FinancialItem, ItemType, CategoryType
 from app.schemas.schemas import ActionDirective
-from datetime import date
 
 def calculate_runway(available_cash: float, payables: List[FinancialItem], receivables: List[FinancialItem]) -> Tuple[int, List[str]]:
     """
-    Basic daily simulation to find when cash drops below zero (days to zero).
-    Also records failure modes.
+    Simulates the runway using pandas DataFrames for time-series calculation.
     """
     today = date.today()
-    current_cash = available_cash
     
-    # Sort chronological
-    timeline_items = sorted(payables + receivables, key=lambda x: x.due_date)
+    # Create DataFrames
+    p_data = [{"date": p.due_date, "amount": -p.amount, "name": p.name} for p in payables]
+    r_data = [{"date": r.due_date, "amount": r.amount, "name": r.name} for r in receivables]
     
-    days_to_zero = 999 
+    all_data = p_data + r_data
+    
+    if not all_data:
+        return 999, []
+        
+    df = pd.DataFrame(all_data)
+    df["date"] = pd.to_datetime(df["date"]).dt.date
+    df = df.sort_values(by="date")
+    
+    # Calculate cumulative cash
+    df["cumulative_cash"] = available_cash + df["amount"].cumsum()
+    
+    days_to_zero = 999
     failure_modes = []
     
-    for item in timeline_items:
-        if item.item_type == ItemType.receivable:
-            current_cash += item.amount
-        else: # payable
-            current_cash -= item.amount
-            if current_cash < 0:
-                shortfall = abs(current_cash)
-                days_diff = (item.due_date - today).days
-                if days_to_zero == 999: # Record first breach
-                    days_to_zero = days_diff if days_diff >= 0 else 0
-                
-                failure_modes.append(f"Shortfall of ${shortfall:,.2f} expected on {item.due_date} due to {item.name}.")
-                # For MVP, we continue simulation to find all breaches
-    
-    # If no items, runway is indefinitely long (999)
+    # Identify failures
+    df_negative = df[df["cumulative_cash"] < 0]
+    if not df_negative.empty:
+        first_failure = df_negative.iloc[0]
+        days_diff = (first_failure["date"] - today).days
+        days_to_zero = max(0, days_diff)
+        
+        for _, row in df_negative.iterrows():
+            shortfall = abs(row["cumulative_cash"])
+            failure_modes.append(f"Shortfall of ${shortfall:,.2f} expected on {row['date']} due to {row['name']}.")
+            
     return days_to_zero, failure_modes
+
+
+def get_category_weight(category: CategoryType) -> float:
+    # Resolve Enum to string safely
+    cat_str = category.value if hasattr(category, "value") else str(category)
+    if cat_str == "fixed": return 1000.0
+    if cat_str == "strategic": return 50.0
+    return 10.0
+
+def get_risk_weight(risk: str) -> float:
+    risk_lower = risk.lower() if risk else "low"
+    if risk_lower == "high": return 100.0
+    if risk_lower == "medium": return 50.0
+    return 10.0
 
 
 def generate_action_directives(available_cash: float, payables: List[FinancialItem]) -> List[ActionDirective]:
     """
-    Trade-Off engine deterministically evaluating what to pay vs delay based on constraint risk score.
+    Replaces rule-based heuristics with deterministic MILP via PuLP.
+    Objective: Minimize the penalty cost of delayed payments.
     """
-    directives = []
-    current_cash = available_cash
+    if not payables:
+        return []
+        
+    # Define the problem: Minimize total delay cost
+    prob = pulp.LpProblem("CashflowOptimization", pulp.LpMinimize)
     
-    # Score payables: higher score means rank it higher for payment
-    # Rule: Fixed & high relationship risk = prioritize. Low penalty = delayable.
-    scored_payables = []
+    # Variables: y_i is the amount we DECIDE to pay for item i
+    payment_vars = {}
+    
+    # Cost modeling factors
+    today = date.today()
+    
     for p in payables:
-        score = 0
-        if p.category == CategoryType.fixed:
-            score += 50
-        elif p.category == CategoryType.strategic:
-            score += 10
-            
-        if p.relationship_risk == "high":
-            score += 30
-        elif p.relationship_risk == "medium":
-            score += 10
-            
-        score += p.penalty_rate * 100 # high penalty = high score
+        cat_weight = get_category_weight(p.category)
+        risk_weight = get_risk_weight(p.relationship_risk)
+        urgency_weight = max(0, 30 - (p.due_date - today).days) * 2  # Closer due dates hurt more to delay
         
-        # Closer due dates score higher
-        days_until_due = (p.due_date - date.today()).days
-        if days_until_due <= 7:
-            score += 20
-            
-        scored_payables.append((score, p))
+        # Total cost of delaying $1 for this payable
+        delay_cost_per_dollar = (p.penalty_rate * 500) + cat_weight + risk_weight + urgency_weight
         
-    # Sort by score descending
-    scored_payables.sort(key=lambda x: x[0], reverse=True)
+        # Variable: amount paid towards this payable
+        payment_vars[p.id] = pulp.LpVariable(f"pay_{p.id}", lowBound=0, upBound=p.amount, cat='Continuous')
+        
+    # Objective function: Minimize sum of (Amount - Paid) * DelayCostPerDollar
+    prob += pulp.lpSum([
+        (p.amount - payment_vars[p.id]) * (
+            (p.penalty_rate * 500) +
+            get_category_weight(p.category) +
+            get_risk_weight(p.relationship_risk) +
+            max(0, 30 - (p.due_date - today).days) * 2
+        ) for p in payables
+    ]), "TotalDelayCost"
     
-    for score, p in scored_payables:
-        # Resolve category value safely to string
-        cat_str = p.category.value if hasattr(p.category, 'value') else str(p.category)
+    # Constraint 1: Total cash outgoing cannot exceed available cash
+    prob += pulp.lpSum([payment_vars[p.id] for p in payables]) <= available_cash, "CashConstraint"
+    
+    # Solve the MILP
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    
+    # Extract results and generate directives
+    directives = []
+    
+    for p in payables:
+        paid_amount = pulp.value(payment_vars[p.id]) or 0.0
         
-        if current_cash >= p.amount:
-            # We can pay it
-            current_cash -= p.amount
-            directives.append(ActionDirective(
-                item_id=p.id,
-                name=p.name,
-                action="Pay",
-                amount_to_pay=p.amount,
-                justification=f"Sufficient cash available. Priority score: {score:.1f}. Category: {cat_str}."
-            ))
-        elif current_cash > 0:
-            # Partial payment / Negotiate
-            amount_to_pay = current_cash
-            current_cash = 0
-            directives.append(ActionDirective(
-                item_id=p.id,
-                name=p.name,
-                action="Negotiate",
-                amount_to_pay=amount_to_pay,
-                justification=f"Insufficient cash for full payment. Relationship risk is {p.relationship_risk}. Suggesting a partial payment of ${amount_to_pay:,.2f}."
-            ))
+        # Handle precision floating point issues
+        paid_amount = round(paid_amount, 2)
+        target_amount = round(p.amount, 2)
+        
+        cat_str = p.category.value if hasattr(p.category, "value") else str(p.category)
+        
+        if paid_amount >= target_amount - 0.01:
+            action = "Pay"
+            justification = f"[MILP Optimized] Fully funded. High priority constraint satisfied (Category: {cat_str}, Risk: {p.relationship_risk})."
+        elif paid_amount > 0.01:
+            action = "Negotiate"
+            justification = f"[MILP Optimized] Partial allocation constraint. Mathematical optimization allocated ${paid_amount:,.2f} to minimize overall relationship/penalty degradation."
         else:
-            # Delay
-            directives.append(ActionDirective(
-                item_id=p.id,
-                name=p.name,
-                action="Delay",
-                amount_to_pay=0.0,
-                justification=f"No cash available to cover this. Incurring {p.penalty_rate*100}% penalty if applicable. Lowest priority score in queue."
-            ))
+            action = "Delay"
+            justification = f"[MILP Optimized] Delayed. Model calculated that routing cash here breached the objective function's optimal penalty threshold."
             
+        directives.append(ActionDirective(
+            item_id=p.id,
+            name=p.name,
+            action=action,
+            amount_to_pay=paid_amount,
+            justification=justification
+        ))
+        
+    # Sort action directives: Pay -> Negotiate -> Delay
+    sort_order = {"Pay": 1, "Negotiate": 2, "Delay": 3}
+    directives.sort(key=lambda x: (sort_order.get(x.action, 4), -x.amount_to_pay))
+    
     return directives
