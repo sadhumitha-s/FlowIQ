@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 
 from app.models.domain import ItemType
+from app.services.vision_invoice import is_vision_fallback_enabled, parse_invoice_with_vision
 
 try:
     import pytesseract
@@ -138,5 +139,26 @@ def extract_text_from_image(image_bytes: bytes) -> str:
 
 
 def parse_financial_document(image_bytes: bytes, default_item_type: ItemType = ItemType.payable) -> list[dict[str, Any]]:
-    extracted_text = extract_text_from_image(image_bytes)
-    return parse_financial_text(extracted_text, default_item_type=default_item_type)
+    ocr_failure: Exception | None = None
+    try:
+        extracted_text = extract_text_from_image(image_bytes)
+    except (OCRDependencyError, ValueError) as exc:
+        ocr_failure = exc
+    else:
+        parsed_rows = parse_financial_text(extracted_text, default_item_type=default_item_type)
+        if parsed_rows:
+            return parsed_rows
+        ocr_failure = ValueError("No financial line-items were detected in OCR output.")
+
+    if not is_vision_fallback_enabled():
+        raise ocr_failure
+
+    vision_invoice = parse_invoice_with_vision(image_bytes)
+    return [
+        {
+            "name": vision_invoice.vendor.strip(),
+            "amount": round(float(vision_invoice.amount), 2),
+            "due_date": vision_invoice.due_date,
+            "item_type": default_item_type,
+        }
+    ]

@@ -79,6 +79,7 @@ FlowIQ/
 3. `source .venv/bin/activate`
 4. `pip install -r requirements.txt`
    - OCR ingestion also requires the system binary `tesseract` to be installed and available on PATH.
+   - Optional Vision fallback uses Groq-hosted Llama 3.2 Vision.
 5. Configure your environment:
    ```bash
    cp .env.example .env
@@ -103,6 +104,17 @@ The backend API and Swagger Docs will run on `http://localhost:8000`.
 - Behavior:
   - Runs Tesseract OCR on uploaded financial documents.
   - Extracts line-items (name, amount, due date, type), structures them with a pandas normalization step, and inserts them into `financial_items`.
+  - When OCR fails to read or parse complex invoices, optional Vision fallback routes the image to Groq-hosted Llama 3.2 Vision and validates strict JSON schema fields: `vendor`, `due_date`, `amount`.
+
+### Vision Fallback Configuration
+Set these in `backend/.env` to enable intelligent document processing:
+
+```bash
+VISION_FALLBACK_ENABLED=true
+GROQ_API_KEY=your_api_key
+GROQ_BASE_URL=https://api.groq.com/openai/v1
+GROQ_MODEL=llama-3.2-11b-vision-preview
+```
 
 ### Frontend Setup
 1. `cd frontend`

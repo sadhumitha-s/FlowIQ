@@ -6,6 +6,7 @@ from app.models.domain import FinancialItem, ItemType
 from app.schemas.schemas import OCRIngestionResponse
 from app.services.clustering import cluster_obligation
 from app.services.ocr_ingestion import OCRDependencyError, parse_financial_document
+from app.services.vision_invoice import VisionServiceError
 
 router = APIRouter()
 
@@ -26,6 +27,8 @@ async def ingest_ocr_document(
     try:
         parsed_items = parse_financial_document(payload, default_item_type=default_item_type)
     except OCRDependencyError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except VisionServiceError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
