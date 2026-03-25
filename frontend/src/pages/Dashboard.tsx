@@ -1,208 +1,199 @@
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Coffee, ShoppingBag, Smartphone, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, CheckCircle2, Clock3, Copy, Loader2, Mail } from 'lucide-react';
+import { FinanceAPI, type ActionDirective, type NegotiationEmailResponse } from '../services/api';
 
-const SPENDING_DATA = [
-  { name: 'Online', value: 45, color: '#FFF27A' },
-  { name: 'Card', value: 30, color: '#FFFFFF' },
-  { name: 'Cash', value: 25, color: '#FB5D5D' },
-];
+interface DashboardInsight {
+  current_cash: number;
+  tax_envelope: number;
+  available_operational_cash: number;
+  runway_days: number;
+  failure_modes: string[];
+}
 
-const INCOME_OUTCOME_DATA = [
-  { month: 'Jan', income: 4000, outcome: 2400 },
-  { month: 'Feb', income: 3000, outcome: 1398 },
-  { month: 'Mar', income: 2000, outcome: 9800 },
-  { month: 'Apr', income: 2780, outcome: 3908 },
-  { month: 'May', income: 8030, outcome: 4800, active: true },
-  { month: 'Jun', income: 2390, outcome: 3800 },
-];
-
-const TRANSACTIONS = [
-  { id: 1, name: 'Starbucks', category: 'Coffee', icon: Coffee, amount: -4.50, date: 'Today, 08:24 AM' },
-  { id: 2, name: 'Apple Store', category: 'Electronics', icon: Smartphone, amount: -999.00, date: 'Today, 10:45 AM' },
-  { id: 3, name: 'Zara', category: 'Shopping', icon: ShoppingBag, amount: -120.50, date: 'Yesterday' },
-  { id: 4, name: 'Salary', category: 'Income', icon: ArrowDownLeft, amount: 4500.00, date: 'May 01, 2024' },
-];
+function formatCurrency(value: number): string {
+  return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
 
 export default function Dashboard() {
+  const [insight, setInsight] = useState<DashboardInsight | null>(null);
+  const [actions, setActions] = useState<ActionDirective[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [emailByItemId, setEmailByItemId] = useState<Record<number, NegotiationEmailResponse>>({});
+  const [emailLoadingByItemId, setEmailLoadingByItemId] = useState<Record<number, boolean>>({});
+  const [copiedItemId, setCopiedItemId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [insightRes, actionsRes] = await Promise.all([
+          FinanceAPI.getInsights(),
+          FinanceAPI.getActions(),
+        ]);
+        setInsight(insightRes.data);
+        setActions(actionsRes.data);
+      } catch {
+        setError('Unable to load dashboard data.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadDashboard();
+  }, []);
+
+  const actionCounts = useMemo(() => {
+    const counts = { Pay: 0, Negotiate: 0, Delay: 0 };
+    for (const action of actions) {
+      counts[action.action] += 1;
+    }
+    return counts;
+  }, [actions]);
+
+  const generateEmail = async (itemId: number) => {
+    setEmailLoadingByItemId((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      const response = await FinanceAPI.generateNegotiationEmail(itemId);
+      setEmailByItemId((prev) => ({ ...prev, [itemId]: response.data }));
+    } catch {
+      setError('Failed to generate negotiation email for this item.');
+    } finally {
+      setEmailLoadingByItemId((prev) => ({ ...prev, [itemId]: false }));
+    }
+  };
+
+  const copyEmail = async (email: NegotiationEmailResponse) => {
+    const copyText = `Subject: ${email.subject}\n\n${email.body}`;
+    try {
+      await navigator.clipboard.writeText(copyText);
+      setCopiedItemId(email.item_id);
+      setTimeout(() => setCopiedItemId((id) => (id === email.item_id ? null : id)), 1400);
+    } catch {
+      setError('Unable to copy to clipboard in this browser.');
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-in fade-in duration-500">
-      
-      {/* Column 1: Balance & Goals */}
-      <div className="space-y-6 flex flex-col">
-        {/* Total Balance Card */}
-        <div className="bg-figma-card rounded-3xl p-6 md:p-8 flex flex-col shadow-sm">
-          <p className="text-slate-400 font-medium mb-2">Total Balance</p>
-          <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-8">
-            $80,300<span className="text-slate-500">.00</span>
-          </h2>
-          
-          <div className="flex gap-4 mt-auto">
-            <button className="flex-1 bg-figma-yellow hover:bg-yellow-300 text-figma-bg font-bold py-3 px-4 rounded-2xl flex items-center justify-center gap-2 transition-colors">
-              <ArrowDownLeft size={18} />
-              Deposit
-            </button>
-            <button className="flex-1 bg-transparent border border-slate-600 hover:border-slate-400 text-white font-bold py-3 px-4 rounded-2xl flex items-center justify-center gap-2 transition-colors">
-              <ArrowUpRight size={18} />
-              Transfer
-            </button>
-          </div>
+    <div className="space-y-6">
+      {error && (
+        <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex items-center gap-2">
+          <AlertCircle size={16} />
+          {error}
         </div>
+      )}
 
-        {/* Financial Goals */}
-        <div className="bg-figma-card rounded-3xl p-6 flex-1 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-6">Financial Goals</h3>
-          
-          <div className="space-y-6">
-            <div>
-              <div className="flex justify-between items-end mb-2">
-                <div>
-                  <p className="text-white font-medium">New Car</p>
-                  <p className="text-xs text-slate-400">$20,000 / $35,000</p>
-                </div>
-                <span className="text-figma-yellow font-bold text-sm">57%</span>
-              </div>
-              <div className="w-full h-3 bg-figma-bg rounded-full overflow-hidden">
-                <div className="h-full bg-figma-yellow rounded-full transition-all duration-1000" style={{ width: '57%' }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between items-end mb-2">
-                <div>
-                  <p className="text-white font-medium">Vacation</p>
-                  <p className="text-xs text-slate-400">$3,500 / $5,000</p>
-                </div>
-                <span className="text-figma-coral font-bold text-sm">70%</span>
-              </div>
-              <div className="w-full h-3 bg-figma-bg rounded-full overflow-hidden">
-                <div className="h-full bg-figma-coral rounded-full transition-all duration-1000" style={{ width: '70%' }}></div>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex justify-between items-end mb-2">
-                <div>
-                  <p className="text-white font-medium">Emergency Fund</p>
-                  <p className="text-xs text-slate-400">$10,000 / $10,000</p>
-                </div>
-                <span className="text-white font-bold text-sm">100%</span>
-              </div>
-              <div className="w-full h-3 bg-figma-bg rounded-full overflow-hidden">
-                <div className="h-full bg-white rounded-full transition-all duration-1000" style={{ width: '100%' }}></div>
-              </div>
-            </div>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
+          <p className="text-slate-400 text-sm">Current Cash</p>
+          <p className="text-2xl font-bold text-white mt-2">{insight ? formatCurrency(insight.current_cash) : '--'}</p>
+        </div>
+        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
+          <p className="text-slate-400 text-sm">Tax Envelope</p>
+          <p className="text-2xl font-bold text-white mt-2">{insight ? formatCurrency(insight.tax_envelope) : '--'}</p>
+        </div>
+        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
+          <p className="text-slate-400 text-sm">Operational Cash</p>
+          <p className="text-2xl font-bold text-white mt-2">{insight ? formatCurrency(insight.available_operational_cash) : '--'}</p>
+        </div>
+        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
+          <p className="text-slate-400 text-sm">Runway</p>
+          <p className="text-2xl font-bold text-white mt-2">{insight ? `${insight.runway_days} days` : '--'}</p>
         </div>
       </div>
 
-      {/* Column 2: Charts Area */}
-      <div className="xl:col-span-2 space-y-6 flex flex-col">
-        
-        {/* Top Row inside Col 2: Spendings & Income vs Outcome */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-auto md:h-72">
-          
-          {/* Spendings Analysis (Donut) */}
-          <div className="bg-figma-card rounded-3xl p-6 shadow-sm flex flex-col">
-            <h3 className="text-lg font-bold text-white mb-2">Spendings</h3>
-            <div className="flex-1 flex justify-center items-center relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={SPENDING_DATA}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={95}
-                    paddingAngle={2}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {SPENDING_DATA.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#26292E', border: 'none', borderRadius: '12px', color: '#fff' }}
-                    itemStyle={{ color: '#fff' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                <span className="text-2xl font-bold text-white">100%</span>
-                <span className="text-xs text-slate-400">Total</span>
-              </div>
-            </div>
-            {/* Custom Legend */}
-            <div className="flex justify-center gap-4 mt-2">
-              {SPENDING_DATA.map(item => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></span>
-                  <span className="text-xs text-slate-300">{item.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Income vs Outcome */}
-          <div className="bg-figma-card rounded-3xl p-6 shadow-sm flex flex-col">
-            <h3 className="text-lg font-bold text-white mb-4">Cash Flow</h3>
-            <div className="flex-1 text-xs">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={INCOME_OUTCOME_DATA} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8' }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8' }} />
-                  <Tooltip 
-                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                    contentStyle={{ backgroundColor: '#26292E', border: 'none', borderRadius: '12px', color: '#fff' }}
-                  />
-                  <Bar dataKey="income" radius={[4, 4, 4, 4]} barSize={14}>
-                    {INCOME_OUTCOME_DATA.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.active ? '#FFF27A' : '#475569'} />
-                    ))}
-                  </Bar>
-                  <Bar dataKey="outcome" radius={[4, 4, 4, 4]} barSize={14}>
-                    {INCOME_OUTCOME_DATA.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.active ? '#FB5D5D' : '#334155'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
+          <p className="text-slate-400 text-sm">Pay</p>
+          <p className="text-3xl font-bold text-emerald-300 mt-2">{actionCounts.Pay}</p>
         </div>
+        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
+          <p className="text-slate-400 text-sm">Negotiate</p>
+          <p className="text-3xl font-bold text-yellow-300 mt-2">{actionCounts.Negotiate}</p>
+        </div>
+        <div className="bg-figma-card rounded-3xl p-5 shadow-sm">
+          <p className="text-slate-400 text-sm">Delay</p>
+          <p className="text-3xl font-bold text-slate-200 mt-2">{actionCounts.Delay}</p>
+        </div>
+      </div>
 
-        {/* Recent Transactions List */}
-        <div className="bg-figma-card rounded-3xl p-6 shadow-sm flex-1">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold text-white">Recent Transactions</h3>
-            <button className="text-sm font-medium text-figma-yellow hover:text-yellow-300 transition-colors">
-              View All
-            </button>
-          </div>
-          
+      <div className="bg-figma-card rounded-3xl p-6 shadow-sm">
+        <h2 className="text-xl font-bold text-white mb-4">Action Plan</h2>
+
+        {loading ? (
+          <div className="text-slate-300 flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Loading actions...</div>
+        ) : actions.length === 0 ? (
+          <p className="text-slate-400">No payable actions available.</p>
+        ) : (
           <div className="space-y-4">
-            {TRANSACTIONS.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-700/30 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-700/50 flex items-center justify-center text-slate-300">
-                    <tx.icon size={24} />
+            {actions.map((action) => {
+              const email = emailByItemId[action.item_id];
+              const emailLoading = emailLoadingByItemId[action.item_id] ?? false;
+
+              return (
+                <div key={action.item_id} className="rounded-2xl border border-slate-700 p-4 bg-slate-900/20">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        {action.action === 'Pay' && <CheckCircle2 size={16} className="text-emerald-400" />}
+                        {action.action === 'Negotiate' && <Mail size={16} className="text-yellow-300" />}
+                        {action.action === 'Delay' && <Clock3 size={16} className="text-slate-300" />}
+                        <span className="text-white font-semibold">{action.name}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-200">{action.action}</span>
+                      </div>
+                      <p className="text-sm text-slate-300 mt-1">Pay now: <span className="font-medium text-white">{formatCurrency(action.amount_to_pay)}</span></p>
+                    </div>
+
+                    {action.action === 'Negotiate' && (
+                      <button
+                        onClick={() => void generateEmail(action.item_id)}
+                        disabled={emailLoading}
+                        className="bg-figma-yellow hover:bg-yellow-300 disabled:opacity-60 text-figma-bg font-semibold px-4 py-2 rounded-xl transition-colors w-full md:w-auto"
+                      >
+                        {emailLoading ? 'Generating...' : 'Generate Negotiation Email'}
+                      </button>
+                    )}
                   </div>
-                  <div>
-                    <p className="font-bold text-white">{tx.name}</p>
-                    <p className="text-xs text-slate-400">{tx.date}</p>
-                  </div>
+
+                  <p className="text-sm text-slate-400 mt-3">{action.justification}</p>
+
+                  {email && (
+                    <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-800/40 p-4 space-y-3">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                        <div className="text-sm text-slate-300">
+                          Tier: <span className="font-semibold text-white">{email.relationship_tier}</span>
+                          <span className="mx-2 text-slate-500">|</span>
+                          Deferred: <span className="font-semibold text-white">{formatCurrency(email.amount_deferred)}</span>
+                        </div>
+                        <button
+                          onClick={() => void copyEmail(email)}
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700/50"
+                        >
+                          <Copy size={14} />
+                          {copiedItemId === email.item_id ? 'Copied' : 'Copy Email'}
+                        </button>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-3">
+                        <p className="text-sm text-slate-400">Subject</p>
+                        <p className="text-white font-medium mt-1">{email.subject}</p>
+                      </div>
+
+                      <textarea
+                        readOnly
+                        value={email.body}
+                        className="w-full h-52 rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-sm text-slate-200 resize-y focus:outline-none"
+                      />
+                    </div>
+                  )}
                 </div>
-                <div className={`font-bold ${tx.amount > 0 ? 'text-emerald-400' : 'text-white'}`}>
-                  {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </div>
-
+        )}
       </div>
-
     </div>
   );
 }

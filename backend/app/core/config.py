@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     GROQ_REASONING_MODEL: str = "llama-3.1-8b-instant"
     REASONING_LLM_ENABLED: bool = True
     REASONING_TIMEOUT_SECONDS: float = 20.0
+    GROQ_NEGOTIATION_MODEL: str = "llama-3.1-8b-instant"
+    NEGOTIATION_LLM_ENABLED: bool = True
+    NEGOTIATION_TIMEOUT_SECONDS: float = 20.0
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 

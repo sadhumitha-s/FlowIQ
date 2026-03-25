@@ -6,6 +6,11 @@ from app.services.runway import calculate_runway, generate_action_directives
 from app.services import runway
 from app.services import clustering
 from app.services.clustering import cluster_obligation
+from app.services.negotiation_engine import (
+    resolve_negotiation_tier,
+    generate_negotiation_email,
+    NegotiationServiceError,
+)
 
 def test_calculate_tax_envelope():
     assert calculate_tax_envelope(1000.0, 0.25) == 250.0
@@ -101,3 +106,94 @@ def test_generate_action_directives_uses_llm_reasoning(monkeypatch):
     assert "dominated the cash dual signal" in actions[0].justification
     assert actions[1].item_id == 2
     assert "cash shadow price" in actions[1].justification.lower()
+
+
+def test_resolve_negotiation_tier():
+    formal = FinancialItem(
+        name="Landlord",
+        amount=1200,
+        due_date=date.today(),
+        item_type=ItemType.payable,
+        category=CategoryType.fixed,
+        relationship_risk="high",
+    )
+    strategic = FinancialItem(
+        name="Cloud Platform",
+        amount=1200,
+        due_date=date.today(),
+        item_type=ItemType.payable,
+        category=CategoryType.strategic,
+        relationship_risk="medium",
+    )
+    flexible = FinancialItem(
+        name="Freelancer Collective",
+        amount=1200,
+        due_date=date.today(),
+        item_type=ItemType.payable,
+        category=CategoryType.flexible,
+        relationship_risk="low",
+    )
+
+    assert resolve_negotiation_tier(formal) == "Formal"
+    assert resolve_negotiation_tier(strategic) == "Strategic"
+    assert resolve_negotiation_tier(flexible) == "Flexible"
+
+
+def test_generate_negotiation_email_requires_partial_payment():
+    item = FinancialItem(
+        name="Agency",
+        amount=1000,
+        due_date=date.today(),
+        item_type=ItemType.payable,
+        category=CategoryType.flexible,
+        relationship_risk="low",
+    )
+
+    with pytest.raises(NegotiationServiceError):
+        generate_negotiation_email(item=item, payment_now=0.0)
+
+    with pytest.raises(NegotiationServiceError):
+        generate_negotiation_email(item=item, payment_now=1000.0)
+
+
+def test_generate_negotiation_email_fallback(monkeypatch):
+    monkeypatch.setattr("app.services.negotiation_engine.is_negotiation_enabled", lambda: False)
+    item = FinancialItem(
+        name="VendorX",
+        amount=800,
+        due_date=date.today(),
+        item_type=ItemType.payable,
+        category=CategoryType.strategic,
+        relationship_risk="medium",
+    )
+
+    tier, subject, body = generate_negotiation_email(item=item, payment_now=300)
+
+    assert tier == "Strategic"
+    assert "VendorX" in subject
+    assert "$300.00" in body
+    assert "$500.00" in body
+
+
+def test_generate_negotiation_email_falls_back_when_llm_call_fails(monkeypatch):
+    monkeypatch.setattr("app.services.negotiation_engine.is_negotiation_enabled", lambda: True)
+    monkeypatch.setattr(
+        "app.services.negotiation_engine._call_groq_negotiation",
+        lambda **_kwargs: (_ for _ in ()).throw(NegotiationServiceError("llm unavailable")),
+    )
+
+    item = FinancialItem(
+        name="Critical Vendor",
+        amount=600,
+        due_date=date.today(),
+        item_type=ItemType.payable,
+        category=CategoryType.fixed,
+        relationship_risk="high",
+    )
+
+    tier, subject, body = generate_negotiation_email(item=item, payment_now=200)
+
+    assert tier == "Formal"
+    assert "Critical Vendor" in subject
+    assert "$200.00" in body
+    assert "$400.00" in body

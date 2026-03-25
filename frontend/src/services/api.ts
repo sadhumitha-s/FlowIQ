@@ -23,9 +23,30 @@ export interface OCRIngestionResponse {
   items: FinancialItem[];
 }
 
+export interface ActionDirective {
+  item_id: number;
+  name: string;
+  action: 'Pay' | 'Negotiate' | 'Delay';
+  amount_to_pay: number;
+  justification: string;
+}
+
+export interface NegotiationEmailResponse {
+  item_id: number;
+  vendor_name: string;
+  relationship_tier: 'Formal' | 'Strategic' | 'Flexible';
+  amount_total: number;
+  amount_to_pay_now: number;
+  amount_deferred: number;
+  subject: string;
+  body: string;
+}
+
 export const FinanceAPI = {
   getInsights: () => api.get('/engine/insights'),
-  getActions: () => api.get('/engine/actions'),
+  getActions: () => api.get<ActionDirective[]>('/engine/actions'),
+  generateNegotiationEmail: (itemId: number) =>
+    api.post<NegotiationEmailResponse>(`/engine/actions/${itemId}/negotiation-email`),
   getPayables: () => api.get('/payables/'),
   getReceivables: () => api.get('/receivables/'),
   addPayable: (data: FinancialItem) => api.post('/payables/', data),

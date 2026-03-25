@@ -1,119 +1,158 @@
 # FlowIQ
 
-FlowIQ is a cashflow decision engine that combines deterministic optimization with explainable AI reasoning.
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
+![Status](https://img.shields.io/badge/status-MVP-blue)
+![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
+![React](https://img.shields.io/badge/frontend-React%2019-61DAFB)
+![TypeScript](https://img.shields.io/badge/language-TypeScript-3178C6)
+![TailwindCSS](https://img.shields.io/badge/styling-TailwindCSS%204-06B6D4)
 
-## What It Does
-- Tracks current cash, payables, and receivables.
-- Runs tax-envelope and available-cash calculations.
-- Optimizes payment allocation using PuLP (linear programming).
-- Produces action directives: `Pay`, `Negotiate`, `Delay`.
-- Generates mathematical justifications from solver signals (dual variables, shadow prices, reduced costs).
-- Supports OCR ingestion for invoices/bills with optional Groq Vision fallback.
+Cashflow intelligence for founders and finance teams: optimize what to pay now, what to negotiate, and what to defer, with explainable decision math and optional LLM assist.
 
-## Tech Stack
-- Backend: FastAPI, SQLAlchemy, Alembic, Pandas, PuLP, Pydantic
-- Database: SQLite (default) or PostgreSQL/Supabase via `SQLALCHEMY_DATABASE_URI`
-- Frontend: React + TypeScript + Vite
-- AI Services: Groq API (Vision + chat reasoning)
+## Features
+- Cash posture dashboard for `current_cash`, tax envelope, and runway impact.
+- Deterministic optimization of payables with linear programming (`PuLP`).
+- Action directives per payable: `Pay`, `Negotiate`, or `Delay`.
+- Explainable reasoning based on solver internals (duals, shadow prices, reduced costs).
+- Negotiation email generation for partial-payment (`Negotiate`) actions.
+- OCR ingestion for invoice/bill images with optional Groq Vision fallback.
+- Category clustering for unassigned payables.
 
-## Repository Layout
+## Architecture
+- Backend API: FastAPI + SQLAlchemy + Alembic + Pydantic.
+- Optimization/Decision Engine: PuLP + deterministic business logic.
+- AI Layer: Groq-backed reasoning, negotiation copy generation, and OCR fallback.
+- Frontend: React 19 + TypeScript + Vite + Tailwind CSS 4.
+- Database: Supabase PostgreSQL via `SQLALCHEMY_DATABASE_URI` (SQLite still supported for local fallback).
+
+## Project Structure
 ```text
 FlowIQ/
 ├── backend/
 │   ├── app/
-│   │   ├── api/routes/          # accounts, payables, receivables, engine, ingestion
-│   │   ├── services/            # runway, reasoning_engine, ocr_ingestion, vision_invoice, clustering
+│   │   ├── api/
+│   │   │   ├── api.py
+│   │   │   └── routes/
+│   │   │       ├── accounts.py
+│   │   │       ├── payables.py
+│   │   │       ├── receivables.py
+│   │   │       ├── engine.py
+│   │   │       └── ingestion.py
 │   │   ├── core/config.py
+│   │   ├── db/session.py
 │   │   ├── models/domain.py
-│   │   └── schemas/schemas.py
+│   │   ├── schemas/schemas.py
+│   │   └── services/
+│   │       ├── runway.py
+│   │       ├── tax_engine.py
+│   │       ├── reasoning_engine.py
+│   │       ├── negotiation_engine.py
+│   │       ├── ocr_ingestion.py
+│   │       ├── vision_invoice.py
+│   │       └── clustering.py
 │   ├── alembic/
 │   ├── tests/
 │   ├── requirements.txt
 │   └── .env.example
 ├── frontend/
-│   └── src/
-└── README.md
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   └── services/api.ts
+│   ├── package.json
+│   └── vite.config.ts
+├── PRD-CashflowDecisionEngine-MVP.md
+├── README.md
+└── LICENSE
 ```
 
-## Backend Setup
-1. `cd backend`
-2. `python3 -m venv .venv`
-3. `source .venv/bin/activate`
-4. `pip install -r requirements.txt`
-5. `cp .env.example .env`
-6. Set `SQLALCHEMY_DATABASE_URI` in `.env` (or use default local SQLite)
-7. `alembic upgrade head`
-8. `uvicorn app.main:app --reload`
+## Quick Start
+### 1) Backend
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Set your Supabase Postgres URI
+# SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://USER:PASSWORD@HOST:5432/postgres
+alembic upgrade head
+uvicorn app.main:app --reload
+```
 
-Backend base URL: `http://localhost:8000`
-OpenAPI: `http://localhost:8000/api/v1/openapi.json`
-Health: `GET /health`
+Backend endpoints:
+- Base URL: `http://localhost:8000`
+- OpenAPI schema: `http://localhost:8000/api/v1/openapi.json`
+- Health check: `GET /health`
 
-## Frontend Setup
-1. `cd frontend`
-2. `npm install`
-3. `npm run dev`
+### 2) Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 Frontend URL: `http://localhost:5173`
 
-## API Surface
-All backend endpoints are prefixed by `/api/v1`.
+## Environment Variables (`backend/.env`)
+| Key | Required | Default | Purpose |
+|---|---|---|---|
+| `SQLALCHEMY_DATABASE_URI` | Yes (for Supabase) | `sqlite:///./cashflow.db` | DB connection string (use your Supabase Postgres URI) |
+| `VISION_FALLBACK_ENABLED` | No | `false` | Enable Groq Vision fallback when OCR fails |
+| `VISION_TIMEOUT_SECONDS` | No | `45` | Vision request timeout |
+| `GROQ_API_KEY` | If AI enabled | _empty_ | Groq API credential |
+| `GROQ_BASE_URL` | No | `https://api.groq.com/openai/v1` | Groq-compatible base URL |
+| `GROQ_MODEL` | No | `llama-3.2-11b-vision-preview` | Vision fallback model |
+| `REASONING_LLM_ENABLED` | No | `true` | Enable LLM explanation generation |
+| `GROQ_REASONING_MODEL` | No | `llama-3.1-8b-instant` | Reasoning model |
+| `REASONING_TIMEOUT_SECONDS` | No | `20` | Reasoning timeout |
+| `NEGOTIATION_LLM_ENABLED` | No | `true` | Enable negotiation email generation |
+| `GROQ_NEGOTIATION_MODEL` | No | `llama-3.1-8b-instant` | Negotiation model |
+| `NEGOTIATION_TIMEOUT_SECONDS` | No | `20` | Negotiation timeout |
 
-- Accounts
-  - `GET /accounts/`
-  - `POST /accounts/`
-- Payables
-  - `GET /payables/`
-  - `POST /payables/`
-  - `DELETE /payables/{item_id}`
-- Receivables
-  - `GET /receivables/`
-  - `POST /receivables/`
-  - `DELETE /receivables/{item_id}`
-- Engine
-  - `GET /engine/insights`
-  - `GET /engine/actions`
-- Ingestion
-  - `POST /ingestion/ocr` (multipart image + `default_item_type`)
+## API Summary
+All API endpoints are prefixed by `/api/v1`.
 
-## Explainable Reasoning Engine
-`GET /api/v1/engine/actions` runs optimization and builds justifications from:
-- Primal decisions (`pay_i` allocations)
-- Cash constraint dual (`CashConstraint` shadow price)
-- Per-item cap constraint duals (`Cap_{id}` shadow prices)
-- Variable reduced costs (`dj`)
+| Domain | Method | Path | Description |
+|---|---|---|---|
+| Accounts | `GET` | `/accounts/` | List account balances |
+| Accounts | `POST` | `/accounts/` | Create/update account balance |
+| Payables | `GET` | `/payables/` | List payables |
+| Payables | `POST` | `/payables/` | Create payable |
+| Payables | `DELETE` | `/payables/{item_id}` | Delete payable |
+| Receivables | `GET` | `/receivables/` | List receivables |
+| Receivables | `POST` | `/receivables/` | Create receivable |
+| Receivables | `DELETE` | `/receivables/{item_id}` | Delete receivable |
+| Engine | `GET` | `/engine/insights` | Dashboard metrics |
+| Engine | `GET` | `/engine/actions` | Optimized action plan |
+| Engine | `POST` | `/engine/actions/{item_id}/negotiation-email` | Generate negotiation draft (only for `Negotiate`) |
+| Ingestion | `POST` | `/ingestion/ocr` | OCR ingest image file into financial items |
 
-Then it optionally calls a Groq chat model to convert strict numeric context into plain-English mathematical explanations.
+## Explainability Model
+For each actionable payable, FlowIQ can produce a deterministic rationale derived from solver artifacts:
+- primal decisions (`pay_i`),
+- cash constraint duals/shadow prices,
+- cap-constraint duals (`Cap_{id}`),
+- reduced costs (`dj`).
 
-If LLM reasoning is disabled/unavailable, deterministic dual-aware fallback explanations are returned.
+If enabled, an LLM rewrites this numeric context into concise natural language while preserving the math. If unavailable, deterministic fallback explanations are returned.
 
-## Groq Configuration
-Set these in `backend/.env`:
-
-```bash
-GROQ_API_KEY=your_api_key
-GROQ_BASE_URL=https://api.groq.com/openai/v1
-
-# Vision fallback (OCR)
-VISION_FALLBACK_ENABLED=false
-GROQ_MODEL=llama-3.2-11b-vision-preview
-VISION_TIMEOUT_SECONDS=45
-
-# Reasoning engine (actions explanations)
-REASONING_LLM_ENABLED=true
-GROQ_REASONING_MODEL=llama-3.1-8b-instant
-REASONING_TIMEOUT_SECONDS=20
-```
-
-## OCR Ingestion Notes
-- Endpoint: `POST /api/v1/ingestion/ocr`
-- Accepts image uploads only.
-- Uses Tesseract OCR first.
-- Falls back to Groq Vision (if enabled) when OCR extraction/parsing fails.
-- Vision output is schema-validated: `vendor`, `due_date`, `amount`.
-
-## Tests
-From repo root:
+## Testing
+From repository root:
 ```bash
 pytest -q backend/tests
 ```
+
+## Development Notes
+- CORS is currently open (`allow_origins=["*"]`) for local MVP velocity.
+- Tables are auto-created at startup (`Base.metadata.create_all`) and migrations are also available via Alembic.
+- OCR endpoint accepts only image MIME types.
+
+## Roadmap
+- Add CI for tests and lint checks.
+- Add role-based auth and tenant isolation.
+- Add scenario simulations and Monte Carlo stress testing.
+- Improve observability for solver/LLM decision paths.
+
+## License
+This project is licensed under the Apache License 2.0. See [LICENSE](./LICENSE).

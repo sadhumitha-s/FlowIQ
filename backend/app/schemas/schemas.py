@@ -45,6 +45,17 @@ class ActionDirective(BaseModel):
     justification: str
 
 
+class NegotiationEmailResponse(BaseModel):
+    item_id: int
+    vendor_name: str
+    relationship_tier: str  # Formal, Strategic, Flexible
+    amount_total: float
+    amount_to_pay_now: float
+    amount_deferred: float
+    subject: str
+    body: str
+
+
 class OCRIngestionResponse(BaseModel):
     created_count: int
     items: List[FinancialItemResponse]
