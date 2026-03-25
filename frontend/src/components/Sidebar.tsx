@@ -23,9 +23,9 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       <div className="p-6 flex items-center h-24">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-md bg-[#2F5BFF] flex items-center justify-center">
-            <span className="text-white font-bold text-sm leading-none">W</span>
+            <span className="text-white font-bold text-sm leading-none">F</span>
           </div>
-          <span className="text-lg font-semibold tracking-tight text-white">Wealth Wave</span>
+          <span className="text-lg font-semibold tracking-tight text-white">FlowIQ</span>
         </div>
         <button
           type="button"
