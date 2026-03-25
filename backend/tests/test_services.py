@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from app.models.domain import FinancialItem, ItemType, CategoryType
 from app.services.tax_engine import calculate_tax_envelope, get_available_cash
 from app.services.runway import calculate_runway, generate_action_directives
+from app.services import clustering
 from app.services.clustering import cluster_obligation
 
 def test_calculate_tax_envelope():
@@ -12,12 +13,33 @@ def test_get_available_cash():
     assert get_available_cash(1000.0, 250.0) == 750.0
     assert get_available_cash(200.0, 250.0) == 0.0
 
-def test_clustering_heuristics():
+def test_clustering_heuristics(monkeypatch):
+    clustering._get_semantic_classifier.cache_clear()
+    monkeypatch.setattr(clustering, "_get_semantic_classifier", lambda: None)
+
     fixed_item = FinancialItem(name="Monthly Office Rent", amount=1000, due_date=date.today(), item_type=ItemType.payable)
     assert cluster_obligation(fixed_item) == CategoryType.fixed
     
     flexible_item = FinancialItem(name="Office Supplies", amount=100, due_date=date.today(), item_type=ItemType.payable)
     assert cluster_obligation(flexible_item) == CategoryType.flexible
+
+
+def test_clustering_semantic_fallback(monkeypatch):
+    class StubSemanticClassifier:
+        def classify(self, item):
+            assert "Next Quarter Growth Initiative" in item.name
+            return CategoryType.strategic
+
+    clustering._get_semantic_classifier.cache_clear()
+    monkeypatch.setattr(clustering, "_get_semantic_classifier", lambda: StubSemanticClassifier())
+
+    unmapped_item = FinancialItem(
+        name="Next Quarter Growth Initiative",
+        amount=1200,
+        due_date=date.today(),
+        item_type=ItemType.payable,
+    )
+    assert cluster_obligation(unmapped_item) == CategoryType.strategic
 
 def test_calculate_runway():
     today = date.today()
