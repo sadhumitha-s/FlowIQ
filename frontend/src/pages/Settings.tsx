@@ -55,7 +55,7 @@ export default function Settings() {
             </label>
           </div>
 
-          <button type="submit" disabled={saving} className="px-6 py-3 bg-figma-yellow text-slate-900 font-bold rounded-xl text-sm hover:bg-yellow-300 transition-colors disabled:opacity-50">
+          <button type="submit" disabled={saving} className="px-6 py-3 bg-figma-yellow text-slate-900 font-bold rounded-xl text-sm hover:bg-figma-yellow/80 transition-colors disabled:opacity-50">
             {saving ? 'Saving...' : 'Save Settings'}
           </button>
         </form>

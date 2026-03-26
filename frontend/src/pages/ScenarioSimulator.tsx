@@ -194,7 +194,7 @@ export default function ScenarioSimulator() {
           <button
             onClick={runSim}
             disabled={loading}
-            className="w-full py-3 bg-figma-yellow text-slate-900 rounded-xl font-bold text-sm hover:bg-yellow-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full py-3 bg-figma-yellow text-slate-900 rounded-xl font-bold text-sm hover:bg-figma-yellow/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? 'Running simulation…' : '▶ Run Simulation'}
           </button>

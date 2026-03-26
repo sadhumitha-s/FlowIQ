@@ -80,7 +80,7 @@ function EmailPanel({ item }: { item: ActionItem }) {
       <div className="flex gap-2">
         <button
           onClick={copy}
-          className="flex-1 px-4 py-2.5 bg-figma-yellow text-slate-900 rounded-xl text-sm font-semibold hover:bg-yellow-300 transition-colors"
+          className="flex-1 px-4 py-2.5 bg-figma-yellow text-slate-900 rounded-xl text-sm font-semibold hover:bg-figma-yellow/80 transition-colors"
         >
           {copied ? '✓ Copied!' : 'Copy Email'}
         </button>

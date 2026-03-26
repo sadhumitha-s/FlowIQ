@@ -11,6 +11,7 @@ import type {
   SimulationParams,
   Obligation,
 } from '../types';
+import { DEMO_EMAIL, DEMO_PASSWORD, ALLOW_MOCKS } from '../config/demo';
 
 const BASE = 'http://localhost:8000/api/v1';
 
@@ -162,7 +163,8 @@ const MOCK_ACTIONS: ActionItem[] = MOCK_OBLIGATIONS.map(ob => ({
 async function safe<T>(fetchFn: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await fetchFn();
-  } catch {
+  } catch (err) {
+    if (!ALLOW_MOCKS) throw err;
     return fallback;
   }
 }
@@ -254,28 +256,16 @@ export const api = {
   },
 
   login: async (email: string, password: string) => {
-    try {
-      const formData = new URLSearchParams();
-      formData.append('username', email);
-      formData.append('password', password);
-      const r = await http.post('/auth/login', formData, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-      });
-      return r.data;
-    } catch {
-      const access_token = `local-${btoa(email).replace(/=+$/g, '')}`;
-      localAuthTokenToEmail.set(access_token, email);
-      return { access_token };
+    if (email !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
+      throw new Error('Invalid demo credentials');
     }
+    const access_token = `demo-${btoa(email).replace(/=+$/g, '')}`;
+    localAuthTokenToEmail.set(access_token, email);
+    return { access_token };
   },
 
   signup: async (email: string, password: string) => {
-    try {
-      const r = await http.post('/auth/signup', { email, password });
-      return r.data;
-    } catch {
-      return { email, status: 'local-only' };
-    }
+    throw new Error('Signup disabled for demo access');
   },
 
   getProfile: async () => {
@@ -285,8 +275,8 @@ export const api = {
     } catch {
       const authHeader = http.defaults.headers.common['Authorization'];
       const token = typeof authHeader === 'string' ? authHeader.replace('Bearer ', '') : '';
-      const email = localAuthTokenToEmail.get(token) ?? 'local@flowiq.app';
-      return { id: token || 'local-user', email };
+      const email = localAuthTokenToEmail.get(token) ?? DEMO_EMAIL;
+      return { id: token || 'demo-user', email };
     }
   },
 
@@ -299,6 +289,10 @@ export const api = {
         http.get<BackendInsight>('/engine/insights'),
         http.get<BackendDirective[]>('/engine/actions'),
       ]);
+
+      if (ALLOW_MOCKS && (payablesRes.data?.length ?? 0) === 0 && (receivablesRes.data?.length ?? 0) === 0) {
+        return MOCK_STATE;
+      }
 
       const actionById = new Map(actionsRes.data.map((a) => [a.item_id, a]));
 
@@ -355,6 +349,9 @@ export const api = {
   getRunway: () =>
     safe(async () => {
       const insights = await http.get<BackendInsight>('/engine/insights');
+      if (ALLOW_MOCKS && (!insights.data || !Array.isArray(insights.data.failure_modes))) {
+        return MOCK_RUNWAY;
+      }
       return {
         ...MOCK_RUNWAY,
         days_to_zero: insights.data.runway_days,
@@ -365,6 +362,9 @@ export const api = {
   getScenarios: () =>
     safe(async () => {
       const r = await http.get<ScenarioResult[]>('/core/scenarios');
+      if (ALLOW_MOCKS && (!r.data || r.data.length < 2)) {
+        return [MOCK_OPTIMAL, MOCK_CHRONO];
+      }
       return r.data;
     }, [MOCK_OPTIMAL, MOCK_CHRONO]),
 
@@ -374,6 +374,10 @@ export const api = {
         http.get<BackendItem[]>('/payables/'),
         http.get<BackendDirective[]>('/engine/actions'),
       ]);
+
+      if (ALLOW_MOCKS && (actionsRes.data?.length ?? 0) === 0) {
+        return MOCK_ACTIONS;
+      }
 
       const payableById = new Map(payablesRes.data.map((p) => [p.id, p]));
       return actionsRes.data

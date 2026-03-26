@@ -7,15 +7,15 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Manrope', 'sans-serif'],
+        sans: ['Merriweather', 'serif'],
       },
       colors: {
         figma: {
-          bg: '#F4F6F8',
-          sidebar: '#2B2F36',
+          bg: '#EEF2F6',
+          sidebar: '#0F1115',
           card: '#FFFFFF',
-          yellow: '#B7811E',
-          coral: '#C4554D'
+          yellow: '#3B7CFF',
+          coral: '#F2B36B'
         },
         slate: {
           850: '#151e2e',

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.api import api_router
 from app.core.config import settings
+from app.db.seed import seed_if_empty
 
 
 app = FastAPI(
@@ -19,6 +20,10 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+@app.on_event("startup")
+def seed_data() -> None:
+    seed_if_empty()
 
 @app.get("/health")
 def health_check():

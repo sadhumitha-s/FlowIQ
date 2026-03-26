@@ -137,7 +137,20 @@ export default function TradeOff() {
   }
 
   if (loading) return <Skeleton className="h-96 w-full rounded-2xl" />;
-  if (!scenarios || scenarios.length < 2) return null;
+  if (!scenarios || scenarios.length < 2) {
+    return (
+      <div className="space-y-4">
+        <Alert variant="warn">
+          <strong>Tradeoff engine is awaiting data.</strong> We need at least two scenario results to render this view.
+        </Alert>
+        <div className="bg-figma-card rounded-2xl p-6 border border-dashed border-slate-800">
+          <p className="text-sm text-slate-500">
+            If you are running a demo, enable mock data via <span className="font-mono">VITE_ALLOW_MOCKS=true</span> or load payables/receivables in the backend.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const [optimal, chrono] = scenarios;
 

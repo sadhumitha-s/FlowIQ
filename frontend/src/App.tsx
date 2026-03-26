@@ -6,7 +6,6 @@ import ActionCenter from './pages/ActionCenter';
 import ScenarioSimulator from './pages/ScenarioSimulator';
 import Ingestion from './pages/Ingestion';
 import Login from './pages/Login';
-import Signup from './pages/Signup';
 import Transactions from './pages/Transactions';
 import PaymentCards from './pages/PaymentCards';
 import Settings from './pages/Settings';
@@ -19,7 +18,6 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
           
           {/* Protected Area */}
           <Route element={<ProtectedRoute />}>

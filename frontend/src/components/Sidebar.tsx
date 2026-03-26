@@ -88,7 +88,7 @@ export default function Sidebar() {
           <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
           <span className="text-xs text-slate-400">Engine active</span>
         </div>
-        <p className="text-[10px] text-slate-600 font-mono">Ravi Textiles Ltd. · Demo</p>
+        <p className="text-[10px] text-slate-600 font-mono">Ravi Textiles Ltd.</p>
       </div>
     </aside>
   );
