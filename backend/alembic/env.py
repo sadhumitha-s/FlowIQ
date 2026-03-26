@@ -16,6 +16,7 @@ import sys
 
 # Add backend directory to sys path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+os.environ.setdefault("ALEMBIC_STRICT_DB", "1")
 
 from app.db.session import engine as app_engine
 from app.models.domain import Base

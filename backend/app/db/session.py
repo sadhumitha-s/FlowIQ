@@ -1,4 +1,5 @@
 import logging
+import os
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -18,6 +19,7 @@ def _create_engine_for_uri(database_uri: str):
 def _resolve_engine():
     primary_uri = settings.SQLALCHEMY_DATABASE_URI
     engine_candidate = _create_engine_for_uri(primary_uri)
+    strict_db = os.getenv("ALEMBIC_STRICT_DB") == "1"
 
     if primary_uri.startswith("sqlite"):
         return engine_candidate
@@ -27,6 +29,8 @@ def _resolve_engine():
             conn.execute(text("SELECT 1"))
         return engine_candidate
     except SQLAlchemyError as exc:
+        if strict_db:
+            raise
         fallback_uri = "sqlite:///./cashflow.db"
         logger.warning(
             "Primary database unavailable, falling back to local SQLite.",
