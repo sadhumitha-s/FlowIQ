@@ -25,6 +25,31 @@ class ReasoningResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def _get_groq_api_key() -> str | None:
+    raw = (settings.GROQ_API_KEY or "").strip()
+    if not raw:
+        return None
+
+    normalized = (
+        raw.replace("“", "")
+        .replace("”", "")
+        .replace("‘", "")
+        .replace("’", "")
+        .strip()
+        .strip('"')
+        .strip("'")
+        .strip()
+    )
+    if not normalized:
+        return None
+
+    try:
+        normalized.encode("ascii")
+    except UnicodeEncodeError:
+        return None
+    return normalized
+
+
 def _extract_json_text(raw_text: str) -> str:
     stripped = raw_text.strip()
     if stripped.startswith("{") and stripped.endswith("}"):
@@ -83,11 +108,12 @@ def _user_prompt(context: dict[str, Any]) -> str:
 
 
 def _call_groq_reasoning(context: dict[str, Any], expected_item_ids: set[int]) -> dict[int, str]:
-    if not settings.GROQ_API_KEY:
+    api_key = _get_groq_api_key()
+    if not api_key:
         raise ReasoningServiceError("GROQ_API_KEY is required for LLM reasoning.")
 
     endpoint = f"{settings.GROQ_BASE_URL.rstrip('/')}/chat/completions"
-    headers = {"Authorization": f"Bearer {settings.GROQ_API_KEY}"}
+    headers = {"Authorization": f"Bearer {api_key}"}
     payload = {
         "model": settings.GROQ_REASONING_MODEL,
         "temperature": 0.0,
@@ -147,7 +173,7 @@ def _call_groq_reasoning(context: dict[str, Any], expected_item_ids: set[int]) -
 
 
 def is_reasoning_enabled() -> bool:
-    return settings.REASONING_LLM_ENABLED and bool(settings.GROQ_API_KEY)
+    return settings.REASONING_LLM_ENABLED and bool(_get_groq_api_key())
 
 
 def generate_llm_rationales(context: dict[str, Any], expected_item_ids: set[int]) -> dict[int, str]:

@@ -21,6 +21,31 @@ class VisionInvoiceExtraction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def _get_groq_api_key() -> str | None:
+    raw = (settings.GROQ_API_KEY or "").strip()
+    if not raw:
+        return None
+
+    normalized = (
+        raw.replace("“", "")
+        .replace("”", "")
+        .replace("‘", "")
+        .replace("’", "")
+        .strip()
+        .strip('"')
+        .strip("'")
+        .strip()
+    )
+    if not normalized:
+        return None
+
+    try:
+        normalized.encode("ascii")
+    except UnicodeEncodeError:
+        return None
+    return normalized
+
+
 def is_vision_fallback_enabled() -> bool:
     return settings.VISION_FALLBACK_ENABLED
 
@@ -63,7 +88,8 @@ def _validate_invoice_json(raw_json: str) -> VisionInvoiceExtraction:
 
 
 def _call_groq_vision(image_bytes: bytes) -> str:
-    if not settings.GROQ_API_KEY:
+    api_key = _get_groq_api_key()
+    if not api_key:
         raise VisionServiceError("GROQ_API_KEY is required for vision fallback.")
 
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
@@ -100,7 +126,7 @@ def _call_groq_vision(image_bytes: bytes) -> str:
     }
 
     endpoint = f"{settings.GROQ_BASE_URL.rstrip('/')}/chat/completions"
-    headers = {"Authorization": f"Bearer {settings.GROQ_API_KEY}"}
+    headers = {"Authorization": f"Bearer {api_key}"}
 
     try:
         response = httpx.post(

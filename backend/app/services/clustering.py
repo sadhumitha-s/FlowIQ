@@ -1,15 +1,12 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
+from importlib import import_module
 from math import sqrt
 from typing import Optional
 
 from app.models.domain import CategoryType, FinancialItem
-
-try:
-    from sentence_transformers import SentenceTransformer
-except Exception:  # pragma: no cover - import failure handled with fallback
-    SentenceTransformer = None
 
 
 class SemanticObligationClassifier:
@@ -44,10 +41,11 @@ class SemanticObligationClassifier:
     }
 
     def __init__(self) -> None:
-        if SentenceTransformer is None:
+        sentence_transformer_cls = _load_sentence_transformer()
+        if sentence_transformer_cls is None:
             raise RuntimeError("sentence-transformers is not available")
 
-        self._model = SentenceTransformer(self.MODEL_NAME)
+        self._model = sentence_transformer_cls(self.MODEL_NAME)
         self._prototype_embeddings = {
             category: self._model.encode(texts, normalize_embeddings=True)
             for category, texts in self._CATEGORY_PROTOTYPES.items()
@@ -89,8 +87,23 @@ class SemanticObligationClassifier:
 
 @lru_cache(maxsize=1)
 def _get_semantic_classifier() -> Optional[SemanticObligationClassifier]:
+    if not _semantic_model_enabled():
+        return None
+
     try:
         return SemanticObligationClassifier()
+    except Exception:
+        return None
+
+
+def _semantic_model_enabled() -> bool:
+    return os.getenv("SEMANTIC_CLUSTERING_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _load_sentence_transformer():
+    try:
+        module = import_module("sentence_transformers")
+        return getattr(module, "SentenceTransformer", None)
     except Exception:
         return None
 

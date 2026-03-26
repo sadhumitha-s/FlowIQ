@@ -101,6 +101,7 @@ Frontend URL: `http://localhost:5173`
 | `SQLALCHEMY_DATABASE_URI` | Yes (for Supabase) | `sqlite:///./cashflow.db` | DB connection string (use your Supabase Postgres URI) |
 | `VISION_FALLBACK_ENABLED` | No | `false` | Enable Groq Vision fallback when OCR fails |
 | `VISION_TIMEOUT_SECONDS` | No | `45` | Vision request timeout |
+| `SEMANTIC_CLUSTERING_ENABLED` | No | `false` | Opt-in semantic category clustering via `sentence-transformers` |
 | `GROQ_API_KEY` | If AI enabled | _empty_ | Groq API credential |
 | `GROQ_BASE_URL` | No | `https://api.groq.com/openai/v1` | Groq-compatible base URL |
 | `GROQ_MODEL` | No | `llama-3.2-11b-vision-preview` | Vision fallback model |
