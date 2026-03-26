@@ -1,8 +1,5 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
 
 # this is the Alembic Config object, which provides
@@ -20,7 +17,7 @@ import sys
 # Add backend directory to sys path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app.core.config import settings
+from app.db.session import engine as app_engine
 from app.models.domain import Base
 
 # add your model's MetaData object here
@@ -45,7 +42,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = settings.SQLALCHEMY_DATABASE_URI
+    url = str(app_engine.url)
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -64,16 +61,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    configuration = config.get_section(config.config_ini_section) or {}
-    configuration["sqlalchemy.url"] = settings.SQLALCHEMY_DATABASE_URI
-    
-    connectable = engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
+    with app_engine.connect() as connection:
         context.configure(
             connection=connection, target_metadata=target_metadata
         )
