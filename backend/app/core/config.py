@@ -1,3 +1,5 @@
+from pathlib import Path
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,7 +21,11 @@ class Settings(BaseSettings):
     NEGOTIATION_LLM_ENABLED: bool = True
     NEGOTIATION_TIMEOUT_SECONDS: float = 20.0
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=str(Path(__file__).resolve().parents[2] / ".env"),
+        case_sensitive=True,
+        extra="ignore"
+    )
 
 
 settings = Settings()

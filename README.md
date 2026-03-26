@@ -75,7 +75,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 # Set your Supabase Postgres URI
-# SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://USER:PASSWORD@HOST:5432/postgres
+# SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://USER:PASSWORD@HOST:5432/postgres?sslmode=require
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
