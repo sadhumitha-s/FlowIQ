@@ -1,66 +1,106 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import { Bell, Menu, Search } from 'lucide-react';
+import { Bell, Search, User as UserIcon, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-interface LayoutProps {
-  children: ReactNode;
-}
+const pageMeta: Record<string, { title: string; sub: string }> = {
+  '/': { title: 'Dashboard', sub: 'Financial overview & runway analysis' },
+  '/tradeoff': { title: 'Trade-Off Engine', sub: 'Deterministic consequence simulation' },
+  '/actions': { title: 'Action Center', sub: 'Execution directives & negotiation drafts' },
+  '/simulate': { title: 'Scenario Simulator', sub: 'What-if analysis on your cash position' },
+  '/ingest': { title: 'Ingestion Hub', sub: 'Upload invoices, receipts, bank statements' },
+  '/transactions': { title: 'Transactions', sub: 'Historical cash flow activity' },
+  '/cards': { title: 'Payment Cards', sub: 'Manage your payment methods' },
+  '/settings': { title: 'Settings', sub: 'Configure your workspace' },
+};
 
-export default function Layout({ children }: LayoutProps) {
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+export default function Layout() {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const meta = pageMeta[pathname] ?? { title: 'FlowIQ', sub: '' };
+  
+  const { user, logout } = useAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    setDropdownOpen(false);
+    navigate('/login');
+  };
 
   return (
-    <div className="min-h-screen bg-[#F4F6F8] text-[#2B2F36] font-sans flex">
-      <Sidebar mobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
-      {mobileNavOpen && (
-        <button
-          type="button"
-          onClick={() => setMobileNavOpen(false)}
-          className="fixed inset-0 bg-black/20 z-20 lg:hidden"
-          aria-label="Close navigation overlay"
-        />
-      )}
-      
-      {/* Main Container */}
-      <div className="flex-1 lg:ml-64 ml-0 flex flex-col min-h-screen">
-        
-        {/* Header */}
-        <header className="h-20 px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 bg-[#F4F6F8] z-10 border-b border-[#DDE3E8]">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setMobileNavOpen(true)}
-              className="lg:hidden w-9 h-9 rounded-md bg-white border border-[#DDE3E8] flex items-center justify-center text-[#2B2F36]"
-              aria-label="Open navigation"
-            >
-              <Menu size={18} />
-            </button>
-            <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
+    <div className="min-h-screen bg-figma-bg text-slate-50 font-sans flex">
+      <Sidebar />
+
+      <div className="flex-1 ml-64 flex flex-col min-h-screen relative z-0">
+        <header className="h-20 px-8 flex items-center justify-between sticky top-0 bg-figma-bg/90 backdrop-blur-md z-10 border-b border-slate-800/80">
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight">{meta.title}</h1>
+            <p className="text-xs text-slate-500">{meta.sub}</p>
           </div>
-          
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7280]" size={16} />
-              <input 
-                type="text" 
-                placeholder="Search..." 
-                className="bg-white border border-[#DDE3E8] rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-[#2F5BFF] w-56 placeholder-[#9CA3AF]"
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} />
+              <input
+                type="text"
+                placeholder="Search..."
+                className="bg-figma-card border border-slate-700/50 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-figma-yellow/50 focus:border-figma-yellow/30 text-white w-56 placeholder-slate-600 transition-all"
               />
             </div>
-            <button className="w-9 h-9 rounded-md bg-white border border-[#DDE3E8] flex items-center justify-center text-[#6B7280] relative">
-              <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#C4554D]"></span>
+            <button className="relative w-9 h-9 rounded-xl bg-figma-card border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+              <Bell size={16} />
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-figma-coral" />
             </button>
-            <div className="w-9 h-9 rounded-md bg-white overflow-hidden border border-[#DDE3E8] cursor-pointer">
-              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Avatar" className="w-full h-full object-cover" />
+            
+            {/* Profile Dropdown */}
+            <div className="relative">
+              <div 
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="w-9 h-9 rounded-xl overflow-hidden border border-slate-700/50 cursor-pointer hover:border-slate-500 transition-colors bg-slate-800 flex items-center justify-center text-slate-300"
+              >
+                {user ? (
+                  <span className="text-sm font-bold">{user.email.charAt(0).toUpperCase()}</span>
+                ) : (
+                  <UserIcon size={16} />
+                )}
+              </div>
+              
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-figma-card border border-slate-800 rounded-xl shadow-xl py-2 z-50">
+                  <div className="px-4 py-2 border-b border-slate-800 mb-2">
+                    <p className="text-xs text-slate-500">Signed in as</p>
+                    <p className="text-sm font-medium text-white truncate">{user?.email}</p>
+                  </div>
+                  <button 
+                    onClick={() => { setDropdownOpen(false); navigate('/settings'); }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center gap-2"
+                  >
+                    <UserIcon size={14} /> Profile Settings
+                  </button>
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-slate-800 hover:text-red-300 transition-colors flex items-center gap-2"
+                  >
+                    <LogOut size={14} /> Sign Out
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
 
-        {/* Content Area */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          {children}
+        <main className="flex-1 p-8">
+          <Outlet />
         </main>
+        
+        {/* Overlay to close dropdown when clicking outside */}
+        {dropdownOpen && (
+          <div 
+            className="fixed inset-0 z-0"
+            onClick={() => setDropdownOpen(false)}
+          />
+        )}
       </div>
     </div>
   );

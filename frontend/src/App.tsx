@@ -1,21 +1,41 @@
-import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
+import TradeOff from './pages/TradeOff';
+import ActionCenter from './pages/ActionCenter';
+import ScenarioSimulator from './pages/ScenarioSimulator';
 import Ingestion from './pages/Ingestion';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import Transactions from './pages/Transactions';
+import PaymentCards from './pages/PaymentCards';
+import Settings from './pages/Settings';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
-function App() {
+export default function App() {
   return (
-    <Router>
-      <Layout>
+    <AuthProvider>
+      <Router>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/ingest" element={<Ingestion />} />
-          <Route path="/ingestion" element={<Navigate to="/ingest" replace />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          
+          {/* Protected Area */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/tradeoff" element={<TradeOff />} />
+              <Route path="/actions" element={<ActionCenter />} />
+              <Route path="/simulate" element={<ScenarioSimulator />} />
+              <Route path="/ingest" element={<Ingestion />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/cards" element={<PaymentCards />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Route>
         </Routes>
-      </Layout>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
-
-export default App;
