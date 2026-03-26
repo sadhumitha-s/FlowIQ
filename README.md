@@ -1,13 +1,19 @@
 # FlowIQ
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-![Status](https://img.shields.io/badge/status-MVP-blue)
 ![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
 ![React](https://img.shields.io/badge/frontend-React%2019-61DAFB)
 ![TypeScript](https://img.shields.io/badge/language-TypeScript-3178C6)
 ![TailwindCSS](https://img.shields.io/badge/styling-TailwindCSS%204-06B6D4)
 
-Cashflow intelligence for founders and finance teams: optimize what to pay now, what to negotiate, and what to defer, with explainable decision math and optional LLM assist.
+Cashflow intelligence for founders and finance teams: optimize what to pay now, what to negotiate, and what to defer — with explainable decision math and optional LLM assist.
+
+## What it does
+FlowIQ helps you make “cash-crunch” decisions by turning a snapshot of your cash + obligations into:
+- a cash posture summary (including an optional tax envelope),
+- an optimized action plan for payables (`Pay`, `Negotiate`, `Delay`),
+- explainability derived from solver internals (with an optional LLM rewrite),
+- OCR-assisted ingestion for invoice/bill images (with optional vision fallback).
 
 ## Features
 - Cash posture dashboard for `current_cash`, tax envelope, and runway impact.
@@ -24,6 +30,34 @@ Cashflow intelligence for founders and finance teams: optimize what to pay now, 
 - AI Layer: Groq-backed reasoning, negotiation copy generation, and OCR fallback.
 - Frontend: React 19 + TypeScript + Vite + Tailwind CSS 4.
 - Database: Supabase PostgreSQL via `SQLALCHEMY_DATABASE_URI` (SQLite still supported for local fallback).
+
+### HLD 
+```mermaid
+flowchart LR
+  U[Founder / Finance Team] -->|Browser| FE[Frontend\nReact + Vite + TS + Tailwind]
+  FE -->|REST /api/v1| API[Backend API\nFastAPI]
+
+  API --> DB[(PostgreSQL\nSupabase or local SQLite)]
+
+  subgraph Engine["Decision Engine (Deterministic)"]
+    OPT[Optimization\nPuLP LP/MILP]
+    RUN[Runway + Cash Posture]
+    TAX[Tax Envelope Engine]
+    EXPL["Explainability\n(duals, reduced costs)"]
+  end
+  API --> Engine
+
+  subgraph AI["Optional AI Services"]
+    REAS[Reasoning rewrite\nGroq]
+    NEG[Negotiation email\nGroq]
+    OCR[Tesseract OCR\npytesseract + Pillow]
+    VIS[Vision fallback\nGroq Vision]
+  end
+  API -. enabled via env .-> AI
+  OCR -. OCR failure .-> VIS
+  EXPL -. optional rewrite .-> REAS
+  OPT -. negotiate action .-> NEG
+```
 
 ## Project Structure
 ```text
@@ -66,6 +100,11 @@ FlowIQ/
 └── LICENSE
 ```
 
+## Prerequisites
+- Python `3.11+` (recommended)
+- Node.js `18+` (or `20+`)
+- If you want OCR ingestion: `tesseract` installed locally (the Python deps are in `backend/requirements.txt`)
+
 ## Quick Start
 ### 1) Backend
 ```bash
@@ -95,6 +134,10 @@ npm run dev
 
 Frontend URL: `http://localhost:5173`
 
+## Configuration
+### Backend environment variables (`backend/.env`)
+Start from `backend/.env.example`.
+
 ## Environment Variables (`backend/.env`)
 | Key | Required | Default | Purpose |
 |---|---|---|---|
@@ -111,6 +154,13 @@ Frontend URL: `http://localhost:5173`
 | `NEGOTIATION_LLM_ENABLED` | No | `true` | Enable negotiation email generation |
 | `GROQ_NEGOTIATION_MODEL` | No | `llama-3.1-8b-instant` | Negotiation model |
 | `NEGOTIATION_TIMEOUT_SECONDS` | No | `20` | Negotiation timeout |
+
+### Frontend environment variables (`frontend/.env`)
+Start from `frontend/.env.example`.
+
+| Key | Required | Default | Purpose |
+|---|---|---|---|
+| `VITE_API_BASE_URL` | No | `http://localhost:8000/api/v1` | Backend base URL |
 
 ## API Summary
 All API endpoints are prefixed by `/api/v1`.
@@ -145,10 +195,17 @@ From repository root:
 pytest -q backend/tests
 ```
 
+## Troubleshooting
+- `OCR dependencies are unavailable...`: install Python deps and ensure `tesseract` is available on `PATH`.
+- `alembic upgrade head` fails: confirm `SQLALCHEMY_DATABASE_URI` points to a reachable database; for SQLite, keep it as `sqlite:///./cashflow.db`.
+- Frontend can’t reach API: verify `frontend/.env` has `VITE_API_BASE_URL=http://localhost:8000/api/v1` and restart `npm run dev`.
+
+## Contributing
+- Keep the decision engine deterministic: LLMs can assist with rewriting and copy generation, but should not replace solver logic.
+- Run tests with `pytest -q backend/tests` before opening a PR.
+
 ## Development Notes
 - CORS is currently open (`allow_origins=["*"]`) for local MVP velocity.
 - Tables are auto-created at startup (`Base.metadata.create_all`) and migrations are also available via Alembic.
 - OCR endpoint accepts only image MIME types.
 
-## License
-This project is licensed under the Apache License 2.0. See [LICENSE](./LICENSE).
