@@ -1,130 +1,160 @@
-# FlowIQ
+# FlowIQ: Deterministic Financial Decision Engine
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 ![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
 ![React](https://img.shields.io/badge/frontend-React%2019-61DAFB)
-![TypeScript](https://img.shields.io/badge/language-TypeScript-3178C6)
+![TypeScript](https://img.shields.io/badge/language-TypeScript%206-3178C6)
+![Vite](https://img.shields.io/badge/build-Vite%208-646CFF)
 ![TailwindCSS](https://img.shields.io/badge/styling-TailwindCSS%204-06B6D4)
 
-Cashflow intelligence for founders and finance teams: optimize what to pay now, what to negotiate, and what to defer — with explainable decision math and optional LLM assist.
+FlowIQ is a high-performance financial operating system designed for founders and finance teams to manage liquidity with mathematical precision. By combining Mixed-Integer Linear Programming (MILP) for optimization with Large Language Model (LLM) heuristics for automated vendor negotiation, FlowIQ transforms static ledger data into dynamic, actionable cash strategies.
 
-## What it does
-FlowIQ helps you make “cash-crunch” decisions by turning a snapshot of your cash + obligations into:
-- a cash posture summary (including an optional tax envelope),
-- an optimized action plan for payables (`Pay`, `Negotiate`, `Delay`),
-- explainability derived from solver internals (with an optional LLM rewrite),
-- OCR-assisted ingestion for invoice/bill images (with optional vision fallback).
+---
 
-## Features
-- Cash posture dashboard for `current_cash`, tax envelope, and runway impact.
-- Deterministic optimization of payables with linear programming (`PuLP`).
-- Action directives per payable: `Pay`, `Negotiate`, or `Delay`.
-- Explainable reasoning based on solver internals (duals, shadow prices, reduced costs).
-- Negotiation email generation for partial-payment (`Negotiate`) actions.
-- OCR ingestion for invoice/bill images with optional Groq Vision fallback.
-- Category clustering for unassigned payables.
+## Core Features
 
-## Architecture
-- Backend API: FastAPI + SQLAlchemy + Alembic + Pydantic.
-- Optimization/Decision Engine: PuLP + deterministic business logic.
-- AI Layer: Groq-backed reasoning, negotiation copy generation, and OCR fallback.
-- Frontend: React 19 + TypeScript + Vite + Tailwind CSS 4.
-- Database: Supabase PostgreSQL via `SQLALCHEMY_DATABASE_URI` (SQLite still supported for local fallback).
+### Deterministic Optimization Engine
+The core engine models cashflow management as a constrained optimization problem using **Mixed-Integer Linear Programming (MILP)** via the PuLP library and CBC solver.
+- **Objective Function**: Minimizes the weighted cumulative cost of payment delays, where weights are derived from vendor relationship risk and penalty rates.
+- **Constraints**: Enforces a hard liquidity ceiling (available cash + expected receivables) and boundary enclosures for each financial item.
+- **Action Directives**: Outputs a discrete set of instructions (Pay, Partial, Negotiate, Delay) based on the optimal solver state.
 
-### HLD 
+### Scenario Canvas (DAG Architecture)
+Interactive financial modeling layer built on a **Directed Acyclic Graph (DAG)** topology using `@xyflow/react`.
+- **Node Topology**: Represents financial entities (Revenue Nodes, Payable Nodes, Cash Nodes) with internal state.
+- **Edge Allocations**: Directed edges represent explicit cash flows. Connecting a revenue node to a payable node performs an "allocation" which the engine uses to recalculate runway survival curves in real-time.
+- **Asynchronous Simulation**: Changes to the graph topology trigger immediate recalculations of the financial projection state without full-page reloads.
+
+### AI-Driven Ingestion & Negotiation
+A multi-modal intelligence layer for data extraction and communication synthesis.
+- **OCR Pipeline**: Utilizes Tesseract for high-accuracy field extraction from PDF/image invoices, mapping raw text to structured Pydantic schemas.
+- **Negotiation Engine**: Employs Llama 3.1/3.2 (via Groq) to generate context-aware vendor correspondence. The engine uses relationship tiers and optimization "Reduced Costs" to argue for specific deferment terms.
+
+### Liquidity & Runway Analytics
+- **Survival Curve Projections**: Derived using Pandas-based series analysis to project cash depletion over time.
+- **Failure Mode Identification**: Automated detection of "Liquidity Gaps"—points in time where cumulative obligations exceed the projected cash ceiling.
+
+---
+
+## Technical Architecture
+
+The system follows a decoupled architecture separating deterministic computation from state management and presentation.
+
+1. **Ingestion**: Raw financial data enters via OCR or manual input and is persisted in PostgreSQL.
+2. **Contextualization**: The system calculates the "Tax Envelope" and "Available Operational Cash" to set the optimization boundaries.
+3. **Optimization**: The MILP solver processes the ledger to find the global minimum for delay costs.
+4. **Presentation**: The React layer renders the dashboard and interactive canvas, allowing users to override the deterministic engine with manual DAG overrides.
+
+---
+
+## Tech Stack
+
+| Layer | Technologies |
+| :--- | :--- |
+| **Frontend** | React 19, TypeScript 6, Vite 8, Tailwind CSS 4, Recharts, xyflow/react |
+| **Backend** | FastAPI (ASGI), SQLAlchemy 2.0, Pydantic v2, Pandas |
+| **Database** | PostgreSQL (via Supabase) |
+| **Optimization** | PuLP, CBC Solver |
+| **AI / ML** | Groq (Llama 3.1 70B / 3.2 Vision), Tesseract OCR, Sentence-Transformers |
+| **DevOps** | Alembic (Migrations), Pytest |
+
+---
+
+## High-Level Design
+
 ```mermaid
-flowchart LR
-  U[Founder / Finance Team] -->|Browser| FE[Frontend\nReact + Vite + TS + Tailwind]
-  FE -->|REST /api/v1| API[Backend API\nFastAPI]
-
-  API --> DB[(PostgreSQL\nSupabase or local SQLite)]
-
-  subgraph Engine["Decision Engine (Deterministic)"]
-    OPT[Optimization\nPuLP LP/MILP]
-    RUN[Runway + Cash Posture]
-    TAX[Tax Envelope Engine]
-    EXPL["Explainability\n(duals, reduced costs)"]
+flowchart TD
+  subgraph Client_Layer[Client Layer - React 19]
+    FE[Frontend Dashboard]
+    Canvas[Scenario Canvas DAG]
   end
-  API --> Engine
 
-  subgraph AI["Optional AI Services"]
-    REAS[Reasoning rewrite\nGroq]
-    NEG[Negotiation email\nGroq]
-    OCR[Tesseract OCR\npytesseract + Pillow]
-    VIS[Vision fallback\nGroq Vision]
+  subgraph API_Layer[API Gateway - FastAPI]
+    Router[Endpoint Router]
+    Auth[Auth Middleware]
   end
-  API -. enabled via env .-> AI
-  OCR -. OCR failure .-> VIS
-  EXPL -. optional rewrite .-> REAS
-  OPT -. negotiate action .-> NEG
+
+  subgraph Processing_Engine[Deterministic Logic Engine]
+    MILP[PuLP Optimization Solver]
+    Runway[Survival Curve Projection]
+    Tax[Tax Envelope Processor]
+  end
+
+  subgraph Intelligence_Layer[Intelligence and Ingestion]
+    LLM[Groq Llama 3.1 Reasoning]
+    OCR[Tesseract Invoice Extraction]
+  end
+
+  subgraph Persistence[Data Layer]
+    DB[(PostgreSQL Supabase)]
+  end
+
+  FE <--> Router
+  Router --> Processing_Engine
+  Router --> Intelligence_Layer
+  Processing_Engine --> DB
+  Intelligence_Layer --> DB
 ```
+
+---
 
 ## Project Structure
+
 ```text
 FlowIQ/
-├── backend/
+├── backend/                  # FastAPI ASGI Application
 │   ├── app/
-│   │   ├── api/
-│   │   │   ├── api.py
-│   │   │   └── routes/
-│   │   │       ├── accounts.py
-│   │   │       ├── payables.py
-│   │   │       ├── receivables.py
-│   │   │       ├── engine.py
-│   │   │       └── ingestion.py
-│   │   ├── core/config.py
-│   │   ├── db/session.py
-│   │   ├── models/domain.py
-│   │   ├── schemas/schemas.py
-│   │   └── services/
-│   │       ├── runway.py
-│   │       ├── tax_engine.py
-│   │       ├── reasoning_engine.py
-│   │       ├── negotiation_engine.py
-│   │       ├── ocr_ingestion.py
-│   │       ├── vision_invoice.py
-│   │       └── clustering.py
-│   ├── alembic/
-│   ├── tests/
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/
+│   │   ├── api/              # API Endpoint Definitions
+│   │   │   └── routes/       # Domain-specific logic: engine, ingestion, audit
+│   │   ├── core/             # Global Configuration & Pydantic settings
+│   │   ├── db/               # SQLAlchemy Session and Engine Logic
+│   │   ├── models/           # SQLAlchemy Declarative Domain Objects
+│   │   ├── schemas/          # Pydantic Request/Response validation
+│   │   ├── services/         # Core Logic: PuLP solver, OCR ingestion, runway projection
+│   │   └── main.py           # Application Entry Point
+│   ├── alembic/              # SQL / Transactional Migrations
+│   ├── tests/                # Coverage for solver logic and API integration
+│   ├── requirements.txt      # Dependency Specification
+│   └── .env.example          # Backend variable template
+├── frontend/                 # React 19 + TypeScript + Vite 8
 │   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   └── services/api.ts
-│   ├── package.json
-│   └── vite.config.ts
-├── PRD-CashflowDecisionEngine-MVP.md
-├── README.md
-└── LICENSE
+│   │   ├── components/       # Primitive UI Library
+│   │   ├── hooks/            # Logic decoupling: useFinancialState, useData
+│   │   ├── pages/            # View Layer: ActionCenter, ScenarioCanvas, Audit
+│   │   ├── services/         # Centralized API Integration (Axios)
+│   │   ├── types/            # TypeScript Interface Schema
+│   │   └── App.tsx           # Route Registry
+│   ├── vite.config.ts        # Vite 8 Build Configuration
+│   └── package.json          # Node Dependency Manifest
+├── LICENSE                   # Apache 2.0
+└── README.md
 ```
 
-## Prerequisites
-- Python `3.11+` (recommended)
-- Node.js `18+` (or `20+`)
-- If you want OCR ingestion: `tesseract` installed locally (the Python deps are in `backend/requirements.txt`)
+---
 
-## Quick Start
-### 1) Backend
+## Explainability Model
+
+The explainability layer parses the solver's `pi` (shadow price) values:
+- **Binding Cash Constraint**: Indicates the marginal increase in the objective value per $1 increase in liquidity.
+- **Cap Shadow Price**: Indicates the marginal value of increasing the allowable payment cap for a specific item.
+- **Reduced Costs ($d_j$)**: Signals the degree of sub-optimality for items deferred by the solver.
+
+---
+
+## Setup Guide
+
+### 1. Backend Service
 ```bash
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Set your Supabase Postgres URI
-# SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://USER:PASSWORD@HOST:5432/postgres?sslmode=require
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-Backend endpoints:
-- Base URL: `http://localhost:8000`
-- OpenAPI schema: `http://localhost:8000/api/v1/openapi.json`
-- Health check: `GET /health`
-
-### 2) Frontend
+### 2. Frontend Interface
 ```bash
 cd frontend
 npm install
@@ -132,80 +162,11 @@ cp .env.example .env
 npm run dev
 ```
 
-Frontend URL: `http://localhost:5173`
+---
 
-## Configuration
-### Backend environment variables (`backend/.env`)
-Start from `backend/.env.example`.
+## Testing & Validation
 
-## Environment Variables (`backend/.env`)
-| Key | Required | Default | Purpose |
-|---|---|---|---|
-| `SQLALCHEMY_DATABASE_URI` | Yes (for Supabase) | `sqlite:///./cashflow.db` | DB connection string (use your Supabase Postgres URI) |
-| `VISION_FALLBACK_ENABLED` | No | `false` | Enable Groq Vision fallback when OCR fails |
-| `VISION_TIMEOUT_SECONDS` | No | `45` | Vision request timeout |
-| `SEMANTIC_CLUSTERING_ENABLED` | No | `false` | Opt-in semantic category clustering via `sentence-transformers` |
-| `GROQ_API_KEY` | If AI enabled | _empty_ | Groq API credential |
-| `GROQ_BASE_URL` | No | `https://api.groq.com/openai/v1` | Groq-compatible base URL |
-| `GROQ_MODEL` | No | `llama-3.2-11b-vision-preview` | Vision fallback model |
-| `REASONING_LLM_ENABLED` | No | `true` | Enable LLM explanation generation |
-| `GROQ_REASONING_MODEL` | No | `llama-3.1-8b-instant` | Reasoning model |
-| `REASONING_TIMEOUT_SECONDS` | No | `20` | Reasoning timeout |
-| `NEGOTIATION_LLM_ENABLED` | No | `true` | Enable negotiation email generation |
-| `GROQ_NEGOTIATION_MODEL` | No | `llama-3.1-8b-instant` | Negotiation model |
-| `NEGOTIATION_TIMEOUT_SECONDS` | No | `20` | Negotiation timeout |
-
-### Frontend environment variables (`frontend/.env`)
-Start from `frontend/.env.example`.
-
-| Key | Required | Default | Purpose |
-|---|---|---|---|
-| `VITE_API_BASE_URL` | No | `http://localhost:8000/api/v1` | Backend base URL |
-
-## API Summary
-All API endpoints are prefixed by `/api/v1`.
-
-| Domain | Method | Path | Description |
-|---|---|---|---|
-| Accounts | `GET` | `/accounts/` | List account balances |
-| Accounts | `POST` | `/accounts/` | Create/update account balance |
-| Payables | `GET` | `/payables/` | List payables |
-| Payables | `POST` | `/payables/` | Create payable |
-| Payables | `DELETE` | `/payables/{item_id}` | Delete payable |
-| Receivables | `GET` | `/receivables/` | List receivables |
-| Receivables | `POST` | `/receivables/` | Create receivable |
-| Receivables | `DELETE` | `/receivables/{item_id}` | Delete receivable |
-| Engine | `GET` | `/engine/insights` | Dashboard metrics |
-| Engine | `GET` | `/engine/actions` | Optimized action plan |
-| Engine | `POST` | `/engine/actions/{item_id}/negotiation-email` | Generate negotiation draft (only for `Negotiate`) |
-| Ingestion | `POST` | `/ingestion/ocr` | OCR ingest image file into financial items |
-
-## Explainability Model
-For each actionable payable, FlowIQ can produce a deterministic rationale derived from solver artifacts:
-- primal decisions (`pay_i`),
-- cash constraint duals/shadow prices,
-- cap-constraint duals (`Cap_{id}`),
-- reduced costs (`dj`).
-
-If enabled, an LLM rewrites this numeric context into concise natural language while preserving the math. If unavailable, deterministic fallback explanations are returned.
-
-## Testing
-From repository root:
+Execute the full suite of deterministic engine tests and integration benchmarks:
 ```bash
-pytest -q backend/tests
+pytest -v backend/tests
 ```
-
-## Troubleshooting
-- `OCR dependencies are unavailable...`: install Python deps and ensure `tesseract` is available on `PATH`.
-- `alembic upgrade head` fails: confirm `SQLALCHEMY_DATABASE_URI` points to a reachable database; for SQLite, keep it as `sqlite:///./cashflow.db`.
-- Frontend can’t reach API: verify `frontend/.env` has `VITE_API_BASE_URL=http://localhost:8000/api/v1` and restart `npm run dev`.
-
-## Contributing
-- Keep the decision engine deterministic: LLMs can assist with rewriting and copy generation, but should not replace solver logic.
-- Run tests with `pytest -q backend/tests` before opening a PR.
-
-## Development Notes
-- CORS is currently open (`allow_origins=["*"]`) for local MVP velocity.
-- Tables are auto-created at startup (`Base.metadata.create_all`) and migrations are also available via Alembic.
-- OCR endpoint accepts only image MIME types.
-
