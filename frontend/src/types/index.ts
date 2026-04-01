@@ -142,3 +142,27 @@ export interface ApiResponse<T> {
   ok: boolean;
   error?: string;
 }
+
+// ─── Core Models ─────────────────────────────────────────────────────────────
+
+export interface Transaction {
+  id: string;
+  amount: number;
+  type: 'income' | 'expense';
+  counterparty?: string;
+  date: string;
+}
+
+export interface PaymentCard {
+  id: string;
+  brand?: string;
+  last4?: string;
+  expiry?: string;
+  spending_limit?: number;
+}
+
+export interface WorkspaceSettings {
+  tax_rate: number;
+  theme: string;
+  notifications_enabled: boolean;
+}

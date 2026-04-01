@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { Bell, Search, User as UserIcon, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -14,11 +13,11 @@ const pageMeta: Record<string, { title: string; sub: string }> = {
   '/transactions': { title: 'Transactions', sub: 'Historical cash flow activity' },
   '/cards': { title: 'Payment Cards', sub: 'Manage your payment methods' },
   '/settings': { title: 'Settings', sub: 'Configure your workspace' },
+  '/audit': { title: 'Subscription Audit', sub: 'Security & cost analysis of SaaS spend' },
+  '/canvas': { title: 'Scenario Canvas', sub: 'Interactive visual cashflow routing' },
 };
 
-interface LayoutProps { children?: ReactNode; }
-
-export default function Layout({ children }: LayoutProps) {
+export default function Layout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const meta = pageMeta[pathname] ?? { title: 'FlowIQ', sub: '' };
@@ -94,8 +93,9 @@ export default function Layout({ children }: LayoutProps) {
         </header>
 
         <main className="flex-1 p-8">
-          {children}
+          <Outlet />
         </main>
+
         
         {/* Overlay to close dropdown when clicking outside */}
         {dropdownOpen && (

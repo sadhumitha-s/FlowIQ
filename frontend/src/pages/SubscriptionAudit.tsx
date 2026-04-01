@@ -37,8 +37,8 @@ export default function SubscriptionAudit() {
     try {
       const data = await api.auditSubscriptions(file);
       setResult(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to audit CSV');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to audit CSV');
     } finally {
       setLoading(false);
     }

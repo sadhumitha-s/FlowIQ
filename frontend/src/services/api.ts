@@ -10,6 +10,9 @@ import type {
   ParsedDocument,
   SimulationParams,
   Obligation,
+  Transaction,
+  PaymentCard,
+  WorkspaceSettings,
 } from '../types';
 import { DEMO_EMAIL, DEMO_PASSWORD, ALLOW_MOCKS } from '../config/demo';
 
@@ -20,6 +23,24 @@ const http = axios.create({
   timeout: 8000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+// ─── Token Management ────────────────────────────────────────────────────────
+
+const setToken = (token: string | null) => {
+  if (token) {
+    http.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    localStorage.setItem('token', token);
+  } else {
+    delete http.defaults.headers.common['Authorization'];
+    localStorage.removeItem('token');
+  }
+};
+
+// Initialize token from localStorage if present
+const storedToken = localStorage.getItem('token');
+if (storedToken) {
+  http.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -158,6 +179,23 @@ const MOCK_ACTIONS: ActionItem[] = MOCK_OBLIGATIONS.map(ob => ({
   } : undefined,
 }));
 
+const MOCK_TRANSACTIONS: Transaction[] = [
+  { id: 'tx-1', amount: 12000, type: 'expense', counterparty: 'DigitalOcean', date: isoDate(-2) },
+  { id: 'tx-2', amount: 45000, type: 'income', counterparty: 'Google AdSense', date: isoDate(-5) },
+  { id: 'tx-3', amount: 8500, type: 'expense', counterparty: 'Starbucks', date: isoDate(-1) },
+];
+
+const MOCK_CARDS: PaymentCard[] = [
+  { id: 'card-1', brand: 'Visa', last4: '4242', expiry: '12/28', spending_limit: 500000 },
+  { id: 'card-2', brand: 'Mastercard', last4: '8888', expiry: '06/27', spending_limit: 250000 },
+];
+
+const MOCK_SETTINGS: WorkspaceSettings = {
+  tax_rate: 0.18,
+  theme: 'dark',
+  notifications_enabled: true,
+};
+
 // ─── Safe fetch wrapper ───────────────────────────────────────────────────────
 
 async function safe<T>(fetchFn: () => Promise<T>, fallback: T): Promise<T> {
@@ -247,13 +285,7 @@ const localAuthTokenToEmail = new Map<string, string>();
 // ─── API Exports ──────────────────────────────────────────────────────────────
 
 export const api = {
-  setToken: (token: string) => {
-    if (token) {
-      http.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    } else {
-      delete http.defaults.headers.common['Authorization'];
-    }
-  },
+  setToken,
 
   login: async (email: string, password: string) => {
     if (email !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
@@ -261,11 +293,12 @@ export const api = {
     }
     const access_token = `demo-${btoa(email).replace(/=+$/g, '')}`;
     localAuthTokenToEmail.set(access_token, email);
+    setToken(access_token);
     return { access_token };
   },
 
   signup: async (_email: string, _password: string) => {
-    throw new Error('Signup disabled for demo access');
+    throw new Error(`Signup disabled for demo access for ${_email} (pwd: ${_password.length} chars)`);
   },
 
   getProfile: async () => {
@@ -515,10 +548,42 @@ export const api = {
     return r.data;
   },
 
-  runCanvasSimulation: async (params: { nodes: any[]; edges: any[] }) => {
+  runCanvasSimulation: async (params: { nodes: unknown[]; edges: unknown[] }) => {
     const r = await http.post('/engine/simulations/canvas', params);
     return r.data;
   },
+
+  // ─── Transactions, Cards, Settings ──────────────────────────────────────────
+
+  getTransactions: () =>
+    safe(async () => {
+      const r = await http.get<Transaction[]>('/core/transactions');
+      return r.data;
+    }, MOCK_TRANSACTIONS),
+
+  createTransaction: (tx: Partial<Transaction>) =>
+    safe(async () => {
+      const r = await http.post<Transaction>('/core/transactions', tx);
+      return r.data;
+    }, { ...tx, id: `tx-${Date.now()}`, date: new Date().toISOString().split('T')[0] } as Transaction),
+
+  getPaymentCards: () =>
+    safe(async () => {
+      const r = await http.get<PaymentCard[]>('/user/payment-cards');
+      return r.data;
+    }, MOCK_CARDS),
+
+  getSettings: () =>
+    safe(async () => {
+      const r = await http.get<WorkspaceSettings>('/user/settings');
+      return r.data;
+    }, MOCK_SETTINGS),
+
+  updateSettings: (settings: WorkspaceSettings) =>
+    safe(async () => {
+      const r = await http.put<WorkspaceSettings>('/user/settings', settings);
+      return r.data;
+    }, settings),
 };
 
 export default api;

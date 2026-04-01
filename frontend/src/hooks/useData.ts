@@ -5,6 +5,9 @@ import type {
   RunwayResult,
   ScenarioResult,
   ActionItem,
+  Transaction,
+  PaymentCard,
+  WorkspaceSettings,
 } from '../types';
 
 function useFetch<T>(fetchFn: () => Promise<T>, deps: unknown[] = []) {
@@ -42,3 +45,12 @@ export const useScenarios = () =>
 
 export const useActions = () =>
   useFetch<ActionItem[]>(() => api.getActions());
+
+export const useTransactions = () =>
+  useFetch<Transaction[]>(() => api.getTransactions());
+
+export const usePaymentCards = () =>
+  useFetch<PaymentCard[]>(() => api.getPaymentCards());
+
+export const useSettings = () =>
+  useFetch<WorkspaceSettings>(() => api.getSettings());

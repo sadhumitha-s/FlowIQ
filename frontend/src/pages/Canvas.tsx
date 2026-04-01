@@ -21,7 +21,16 @@ import { Wallet, TrendingUp, Receipt, Info } from 'lucide-react';
 
 // ─── Custom Node Components ──────────────────────────────────────────────────
 
-const CommonNode = ({ children, title, icon: Icon, colorClass, amount, sub }: any) => (
+interface CommonNodeProps {
+  children?: React.ReactNode;
+  title: string;
+  icon: React.ElementType;
+  colorClass: string;
+  amount: number;
+  sub: string;
+}
+
+const CommonNode = ({ children, title, icon: Icon, colorClass, amount, sub }: CommonNodeProps) => (
   <div className={`px-4 py-3 rounded-xl bg-slate-900 border-2 border-slate-800 min-w-[180px] shadow-2xl transition-all hover:border-slate-600`}>
     <div className="flex items-center gap-3 mb-2">
       <div className={`p-2 rounded-lg ${colorClass} bg-opacity-20`}>
@@ -40,19 +49,37 @@ const CommonNode = ({ children, title, icon: Icon, colorClass, amount, sub }: an
 );
 
 const CashNode = ({ data }: NodeProps) => (
-  <CommonNode title="Available Cash" sub="Liquidity" icon={Wallet} colorClass="bg-emerald-400" amount={data.amount}>
+  <CommonNode 
+    title="Available Cash" 
+    sub="Liquidity" 
+    icon={Wallet} 
+    colorClass="bg-emerald-400" 
+    amount={Number(data.amount)}
+  >
     <Handle type="source" position={Position.Right} className="w-3 h-3 bg-emerald-400 border-2 border-slate-900" />
   </CommonNode>
 );
 
 const RevenueNode = ({ data }: NodeProps) => (
-  <CommonNode title="Inflow" sub={data.name} icon={TrendingUp} colorClass="bg-blue-400" amount={data.amount}>
+  <CommonNode 
+    title="Inflow" 
+    sub={String(data.name)} 
+    icon={TrendingUp} 
+    colorClass="bg-blue-400" 
+    amount={Number(data.amount)}
+  >
     <Handle type="source" position={Position.Right} className="w-3 h-3 bg-blue-400 border-2 border-slate-900" />
   </CommonNode>
 );
 
 const PayableNode = ({ data }: NodeProps) => (
-  <CommonNode title="Outflow" sub={data.name} icon={Receipt} colorClass="bg-red-400" amount={data.amount}>
+  <CommonNode 
+    title="Outflow" 
+    sub={String(data.name)} 
+    icon={Receipt} 
+    colorClass="bg-red-400" 
+    amount={Number(data.amount)}
+  >
     <Handle type="target" position={Position.Left} className="w-3 h-3 bg-red-400 border-2 border-slate-900" />
   </CommonNode>
 );

@@ -117,7 +117,7 @@ export function ScoreBar({ score }: { score: number }) {
 // ─── Alert ───────────────────────────────────────────────────────────────────
 
 interface AlertProps {
-  variant: 'danger' | 'warn' | 'info';
+  variant: 'danger' | 'warn' | 'info' | 'success';
   children: ReactNode;
   icon?: string;
 }
@@ -126,10 +126,11 @@ const alertStyles = {
   danger: 'bg-red-500/5 border-red-500/20 text-red-300',
   warn: 'bg-amber-500/5 border-amber-500/20 text-amber-300',
   info: 'bg-blue-500/5 border-blue-500/20 text-blue-300',
+  success: 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300',
 };
 
 export function Alert({ variant, children, icon }: AlertProps) {
-  const defaultIcons = { danger: '⚠', warn: '◈', info: '◎' };
+  const defaultIcons = { danger: '⚠', warn: '◈', info: '◎', success: '✓' };
   return (
     <div className={clsx('flex gap-3 rounded-xl px-4 py-3 border text-sm', alertStyles[variant])}>
       <span className="flex-shrink-0 mt-0.5">{icon ?? defaultIcons[variant]}</span>

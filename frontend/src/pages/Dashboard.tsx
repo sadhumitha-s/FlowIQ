@@ -73,7 +73,7 @@ function CashFlowChart({ data }: { data: Array<{ date: string; balance: number; 
         <CartesianGrid strokeDasharray="3 3" stroke="#374151" strokeOpacity={0.5} />
         <XAxis dataKey="label" tick={{ fill: '#4b5563', fontSize: 10, fontFamily: 'monospace' }} tickLine={false} axisLine={false} interval={4} />
         <YAxis tick={{ fill: '#4b5563', fontSize: 10, fontFamily: 'monospace' }} tickLine={false} axisLine={false} tickFormatter={v => `₹${v / 1000}K`} />
-        <Tooltip contentStyle={chartTooltipStyle} labelStyle={{ color: '#e2e8f0', marginBottom: 4 }} formatter={(v: any) => [`₹${Number(v).toLocaleString('en-IN')}`, '']} />
+        <Tooltip contentStyle={chartTooltipStyle} labelStyle={{ color: '#e2e8f0', marginBottom: 4 }} formatter={(v: readonly (number | string)[] | number | string | undefined) => v ? [`₹${Number(v).toLocaleString('en-IN')}`, ''] : ['', '']} />
         <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 2" strokeWidth={1} />
         <Area type="monotone" dataKey="balance" stroke="#f87171" strokeWidth={1.5} strokeDasharray="4 2" fill="url(#unmanaged)" name="Unmanaged" />
         <Area type="monotone" dataKey="balance_optimal" stroke="#34d399" strokeWidth={2} fill="url(#optimal)" name="Optimal path" />
