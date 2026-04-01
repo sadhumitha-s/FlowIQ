@@ -114,46 +114,77 @@ def _clone_with_due_date(item: FinancialItem, due_date_value: date) -> Financial
     )
 
 
-@router.post(
-    "/simulations/cash-runway-stress",
-    response_model=CashRunwayStressSimulationResponse,
+from app.schemas.schemas import (
+    DashboardInsight,
+    ActionDirective,
+    NegotiationEmailResponse,
+    CashRunwayStressSimulationRequest,
+    CashRunwayStressSimulationResponse,
+    CanvasSimulationRequest,
 )
-def simulate_cash_runway_stress(
-    payload: CashRunwayStressSimulationRequest,
+
+# ... (existing imports and code)
+
+@router.post("/simulations/canvas", response_model=CashRunwayStressSimulationResponse)
+def simulate_canvas_graph(
+    payload: CanvasSimulationRequest,
     db: Session = Depends(get_db),
 ):
+    """
+    Simulates cash runway based on graph topology.
+    Revenue nodes connected to Payable nodes represent direct allocations.
+    """
     payables = db.query(FinancialItem).filter(FinancialItem.item_type == ItemType.payable).all()
     receivables = db.query(FinancialItem).filter(FinancialItem.item_type == ItemType.receivable).all()
-    target = next((item for item in payables if item.id == payload.item_id), None)
-    if target is None:
-        raise HTTPException(status_code=404, detail="Payable item not found for simulation.")
-
     balance_record = db.query(CashBalance).first()
     current_cash = balance_record.amount if balance_record else 0.0
+    
+    # Map edges to payment plan
+    # In this MVP canvas logic:
+    # 1. Edges from CashNode/RevenueNode to PayableNode count as planned payments.
+    # 2. We use the edge 'label' or 'amount' if present, otherwise assume full payment if connected.
+    
+    payment_plan: Dict[int, float] = {}
+    for edge in payload.edges:
+        # Check if target is a payable
+        target_node = next((n for n in payload.nodes if n.id == edge.target), None)
+        if target_node and target_node.type == 'payable':
+            item_id = int(target_node.data.get('item_id', 0))
+            if item_id:
+                # For MVP, if connected, we treat it as "fully funded" or "prioritized"
+                # In a more advanced version, we'd parse the edge weight.
+                payable_item = next((p for p in payables if p.id == item_id), None)
+                if payable_item:
+                    payment_plan[item_id] = payable_item.amount
+
     incoming_revenue = sum(r.amount for r in receivables)
     tax_envelope = calculate_tax_envelope(incoming_revenue)
     available_operational_cash = get_available_cash(current_cash, tax_envelope)
 
-    simulated_payables: List[FinancialItem] = []
-    for item in payables:
-        if item.id == payload.item_id:
-            simulated_payables.append(_clone_with_due_date(item, payload.due_date))
-        else:
-            simulated_payables.append(_clone_with_due_date(item, item.due_date))
-
-    actions = generate_action_directives(available_operational_cash, simulated_payables)
-    payment_plan = {directive.item_id: directive.amount_to_pay for directive in actions}
     runway_days, failure_modes, curve_points = project_survival_curve(
         available_cash=available_operational_cash,
-        payables=simulated_payables,
+        payables=payables,
         receivables=receivables,
         payment_plan=payment_plan,
     )
 
+    # We return the directives reflecting this manual plan
+    actions = []
+    for p in payables:
+        paid = payment_plan.get(p.id, 0.0)
+        action = "Pay" if paid >= p.amount - 0.01 else "Delay"
+        actions.append(ActionDirective(
+            item_id=p.id,
+            name=p.name,
+            action=action,
+            amount_to_pay=paid,
+            justification="Manual allocation via Scenario Canvas."
+        ))
+
     return CashRunwayStressSimulationResponse(
-        item_id=payload.item_id,
-        original_due_date=target.due_date,
-        simulated_due_date=payload.due_date,
+        item_id=0, # Not a single item simulation
+        original_due_date=date.today(),
+        simulated_due_date=date.today(),
         runway_days=runway_days,
         failure_modes=failure_modes,
         curve_points=curve_points,

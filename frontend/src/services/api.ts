@@ -264,7 +264,7 @@ export const api = {
     return { access_token };
   },
 
-  signup: async (email: string, password: string) => {
+  signup: async (_email: string, _password: string) => {
     throw new Error('Signup disabled for demo access');
   },
 
@@ -499,6 +499,25 @@ export const api = {
       field_confidences: { vendor: 0.96, amount: 0.99, date: 0.92, due_date: 0.87, category: 0.94 },
       status: 'parsed',
     });
+  },
+
+  auditSubscriptions: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const r = await http.post('/subscriptions/audit', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return r.data;
+  },
+
+  getActiveSubscriptions: async () => {
+    const r = await http.get('/subscriptions/');
+    return r.data;
+  },
+
+  runCanvasSimulation: async (params: { nodes: any[]; edges: any[] }) => {
+    const r = await http.post('/engine/simulations/canvas', params);
+    return r.data;
   },
 };
 

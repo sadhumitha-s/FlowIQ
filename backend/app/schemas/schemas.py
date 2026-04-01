@@ -80,3 +80,36 @@ class NegotiationEmailResponse(BaseModel):
 class OCRIngestionResponse(BaseModel):
     created_count: int
     items: List[FinancialItemResponse]
+
+class SubscriptionBase(BaseModel):
+    name: str
+    monthly_cost: float
+    is_active: int = 1
+    category: Optional[str] = None
+    alternative_suggestion: Optional[str] = None
+
+class SubscriptionResponse(SubscriptionBase):
+    id: int
+    last_detected: date
+    model_config = ConfigDict(from_attributes=True)
+
+class SubscriptionAuditResult(BaseModel):
+    detected_subscriptions: List[SubscriptionResponse]
+    total_monthly_bleed: float
+    annual_bleed: float
+
+class CanvasNode(BaseModel):
+    id: str
+    type: str
+    position: dict
+    data: dict
+
+class CanvasEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    label: Optional[str] = None
+
+class CanvasSimulationRequest(BaseModel):
+    nodes: List[CanvasNode]
+    edges: List[CanvasEdge]

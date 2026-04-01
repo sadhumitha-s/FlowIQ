@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routes import accounts, payables, receivables, engine, ingestion, user, core
+from app.api.routes import accounts, payables, receivables, engine, ingestion, user, core, subscriptions
 
 api_router = APIRouter()
 api_router.include_router(accounts.router, prefix="/accounts", tags=["Accounts"])
@@ -9,3 +9,4 @@ api_router.include_router(ingestion.router, prefix="/ingestion", tags=["Ingestio
 api_router.include_router(engine.router, prefix="/engine", tags=["Engine"])
 api_router.include_router(user.router, prefix="/user", tags=["User"])
 api_router.include_router(core.router, prefix="/core", tags=["Core"])
+api_router.include_router(subscriptions.router, prefix="/subscriptions", tags=["Subscriptions"])

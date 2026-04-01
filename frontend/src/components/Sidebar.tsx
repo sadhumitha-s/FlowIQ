@@ -8,6 +8,8 @@ import {
   CreditCard,
   Settings,
   Activity,
+  ShieldAlert,
+  Share2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -19,12 +21,14 @@ const navGroups = [
       { to: '/tradeoff', icon: GitCompare, label: 'Trade-Off Engine' },
       { to: '/actions', icon: Zap, label: 'Action Center' },
       { to: '/simulate', icon: FlaskConical, label: 'Scenario Simulator' },
+      { to: '/canvas', icon: Share2, label: 'Scenario Canvas' },
     ],
   },
   {
     label: 'Data',
     items: [
       { to: '/ingest', icon: UploadCloud, label: 'Ingestion Hub' },
+      { to: '/audit', icon: ShieldAlert, label: 'Subscription Audit' },
       { to: '/transactions', icon: Activity, label: 'Transactions' },
     ],
   },
@@ -88,7 +92,7 @@ export default function Sidebar() {
           <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
           <span className="text-xs text-slate-400">Engine active</span>
         </div>
-        <p className="text-[10px] text-slate-600 font-mono">Ravi Textiles Ltd.</p>
+        <p className="text-[10px] text-slate-600 font-mono">Ravi Textiles Ltd. · Demo</p>
       </div>
     </aside>
   );

@@ -29,3 +29,13 @@ class FinancialItem(Base):
     category = Column(SQLEnum(CategoryType), default=CategoryType.unassigned)
     penalty_rate = Column(Float, default=0.0)
     relationship_risk = Column(String, default="low") # low, medium, high
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    monthly_cost = Column(Float, nullable=False)
+    is_active = Column(Integer, default=1) # 1=active, 0=inactive
+    category = Column(String, nullable=True)
+    alternative_suggestion = Column(String, nullable=True)
+    last_detected = Column(Date, default=datetime.date.today)

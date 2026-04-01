@@ -6,9 +6,12 @@ import ActionCenter from './pages/ActionCenter';
 import ScenarioSimulator from './pages/ScenarioSimulator';
 import Ingestion from './pages/Ingestion';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import Transactions from './pages/Transactions';
 import PaymentCards from './pages/PaymentCards';
 import Settings from './pages/Settings';
+import SubscriptionAudit from './pages/SubscriptionAudit';
+import Canvas from './pages/Canvas';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -18,6 +21,7 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           
           {/* Protected Area */}
           <Route element={<ProtectedRoute />}>
@@ -30,6 +34,8 @@ export default function App() {
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/cards" element={<PaymentCards />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/audit" element={<SubscriptionAudit />} />
+              <Route path="/canvas" element={<Canvas />} />
             </Route>
           </Route>
         </Routes>

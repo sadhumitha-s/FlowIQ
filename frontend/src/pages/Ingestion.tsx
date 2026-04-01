@@ -31,7 +31,7 @@ function UploadZone({ onFile }: { onFile: (f: File) => void }) {
       <div className="text-4xl mb-3">📄</div>
       <p className="font-semibold text-slate-200 text-sm">Drop invoice or receipt here</p>
       <p className="text-xs text-slate-500 mt-1">PDF · PNG · JPG · Handwritten OK · Max 10MB</p>
-      <button className="mt-4 px-5 py-2 bg-figma-yellow text-slate-900 rounded-xl text-xs font-bold hover:bg-figma-yellow/80 transition-colors">
+      <button className="mt-4 px-5 py-2 bg-figma-yellow text-slate-900 rounded-xl text-xs font-bold hover:bg-yellow-300 transition-colors">
         Browse Files
       </button>
       <input ref={ref} type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg" onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
@@ -80,7 +80,7 @@ function ParsedResult({ doc, onAccept, onDiscard }: { doc: ParsedDocument; onAcc
       </div>
 
       <div className="flex gap-2">
-        <button onClick={onAccept} className="flex-1 py-2.5 bg-figma-yellow text-slate-900 rounded-xl text-sm font-bold hover:bg-figma-yellow/80 transition-colors">
+        <button onClick={onAccept} className="flex-1 py-2.5 bg-figma-yellow text-slate-900 rounded-xl text-sm font-bold hover:bg-yellow-300 transition-colors">
           ✓ Accept & Add to Queue
         </button>
         <button onClick={onDiscard} className="px-4 py-2.5 bg-figma-card border border-slate-700 rounded-xl text-sm text-slate-300 hover:border-slate-500 transition-colors">
@@ -170,7 +170,7 @@ function ManualEntry({ onAdd }: { onAdd: () => void }) {
       </div>
       <button
         onClick={onAdd}
-        className="mt-4 w-full py-2.5 bg-figma-yellow text-slate-900 rounded-xl text-sm font-bold hover:bg-figma-yellow/80 transition-colors"
+        className="mt-4 w-full py-2.5 bg-figma-yellow text-slate-900 rounded-xl text-sm font-bold hover:bg-yellow-300 transition-colors"
       >
         + Add to Obligation Queue
       </button>
